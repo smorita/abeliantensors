@@ -934,6 +934,8 @@ class AbelianTensorMod(TensorCommon):
             return self.symmetry.normalize(q)
 
     def _qod_reduce(self, qs, d=1):
+        """Take a list of quantum numbers and calculate its summation by using
+        `self.symmetry`."""
         if self.symmetry is None:
             return sum(qs) * d
         else:
@@ -1432,7 +1434,7 @@ class AbelianTensorMod(TensorCommon):
 
         # Compute the new shape, qhape and dir.
         for new_d, batch in zip(dirs, index_batches):
-            product_of_tuple = lambda l: fct.reduce(opr.mul, l)
+            def product_of_tuple(l): return fct.reduce(opr.mul, l)
             cart_prod_of_dims = itt.product(
                 *tuple(res.shape[i] for i in batch)
             )
@@ -1463,11 +1465,11 @@ class AbelianTensorMod(TensorCommon):
                         i += 1
 
             res.shape[batch[0]] = new_dim
-            del res.shape[batch[1] : batch[0] + len(batch)]
+            del res.shape[batch[1]: batch[0] + len(batch)]
             res.qhape[batch[0]] = new_qim
-            del res.qhape[batch[1] : batch[0] + len(batch)]
+            del res.qhape[batch[1]: batch[0] + len(batch)]
             res.dirs[batch[0]] = new_d
-            del res.dirs[batch[1] : batch[0] + len(batch)]
+            del res.dirs[batch[1]: batch[0] + len(batch)]
 
         if return_transposed_shape_data:
             return res, transposed_shape, transposed_qhape, transposed_dirs
@@ -1605,8 +1607,8 @@ class AbelianTensorMod(TensorCommon):
                     qcomb = t[0]
                     dcomb = t[1]
                     cumdim = t[2]
-                    new_key[indices[i] : indices[i] + 1] = qcomb
-                    block_shape[indices[i] : indices[i] + 1] = dcomb
+                    new_key[indices[i]: indices[i] + 1] = qcomb
+                    block_shape[indices[i]: indices[i] + 1] = dcomb
                     slc[indices[i]] = slice(cumdim[0], cumdim[1])
                 new_key = tuple(new_key)
                 slc = tuple(slc)
@@ -1618,9 +1620,9 @@ class AbelianTensorMod(TensorCommon):
         for ind, dim_b, qim_b, dir_b in zip(
             indices, dim_batches, qim_batches, dir_batches
         ):
-            res.shape[ind : ind + 1] = dim_b
-            res.qhape[ind : ind + 1] = qim_b
-            res.dirs[ind : ind + 1] = dir_b
+            res.shape[ind: ind + 1] = dim_b
+            res.qhape[ind: ind + 1] = qim_b
+            res.dirs[ind: ind + 1] = dir_b
 
         return res
 
@@ -1775,7 +1777,8 @@ class AbelianTensorMod(TensorCommon):
             return self * other
         else:
             res_dtype = np.result_type(self.dtype, other.dtype)
-            res_charge = self._qod_func(self.charge + other.charge)
+            # res_charge = self._qod_func(self.charge + other.charge)
+            res_charge = self._qod_reduce([self.charge, other.charge])
             res_invar = self.invar and other.invar
 
             # Vector times vector

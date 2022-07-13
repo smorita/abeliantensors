@@ -890,6 +890,14 @@ class AbelianTensor(TensorCommon):
         else:
             return q % self.qodulus
 
+    def _qod_reduce(self, qs, d=1):
+        """Take a list of quantum numbers and calculate its summation by taking
+        the modulus with `self.qodulus`."""
+        if self.qodulus is None:
+            return sum(qs) * d
+        else:
+            return (sum(qs) % self.qodulus) * d
+
     def is_valid_key(self, key):
         """Return True if `key` is a valid block allowed by symmetry or
         `self.invar` is False. Otherwise False.
@@ -1385,7 +1393,7 @@ class AbelianTensor(TensorCommon):
 
         # Compute the new shape, qhape and dir.
         for new_d, batch in zip(dirs, index_batches):
-            product_of_tuple = lambda l: fct.reduce(opr.mul, l)
+            def product_of_tuple(l): return fct.reduce(opr.mul, l)
             cart_prod_of_dims = itt.product(
                 *tuple(res.shape[i] for i in batch)
             )
@@ -1416,11 +1424,11 @@ class AbelianTensor(TensorCommon):
                         i += 1
 
             res.shape[batch[0]] = new_dim
-            del res.shape[batch[1] : batch[0] + len(batch)]
+            del res.shape[batch[1]: batch[0] + len(batch)]
             res.qhape[batch[0]] = new_qim
-            del res.qhape[batch[1] : batch[0] + len(batch)]
+            del res.qhape[batch[1]: batch[0] + len(batch)]
             res.dirs[batch[0]] = new_d
-            del res.dirs[batch[1] : batch[0] + len(batch)]
+            del res.dirs[batch[1]: batch[0] + len(batch)]
 
         if return_transposed_shape_data:
             return res, transposed_shape, transposed_qhape, transposed_dirs
@@ -1560,8 +1568,8 @@ class AbelianTensor(TensorCommon):
                     qcomb = t[0]
                     dcomb = t[1]
                     cumdim = t[2]
-                    new_key[indices[i] : indices[i] + 1] = qcomb
-                    block_shape[indices[i] : indices[i] + 1] = dcomb
+                    new_key[indices[i]: indices[i] + 1] = qcomb
+                    block_shape[indices[i]: indices[i] + 1] = dcomb
                     slc[indices[i]] = slice(cumdim[0], cumdim[1])
                 new_key = tuple(new_key)
                 slc = tuple(slc)
@@ -1573,9 +1581,9 @@ class AbelianTensor(TensorCommon):
         for ind, dim_b, qim_b, dir_b in zip(
             indices, dim_batches, qim_batches, dir_batches
         ):
-            res.shape[ind : ind + 1] = dim_b
-            res.qhape[ind : ind + 1] = qim_b
-            res.dirs[ind : ind + 1] = dir_b
+            res.shape[ind: ind + 1] = dim_b
+            res.qhape[ind: ind + 1] = qim_b
+            res.dirs[ind: ind + 1] = dir_b
 
         return res
 
