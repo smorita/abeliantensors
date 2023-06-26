@@ -1,9 +1,11 @@
+import sys
 import numpy as np
 import heapq
 import warnings
 import itertools as itt
 import functools as fct
 import operator as opr
+import scipy.linalg as spl
 import scipy.sparse.linalg as spsla
 from copy import deepcopy
 from .tensorcommon import TensorCommon
@@ -2122,7 +2124,15 @@ class AbelianTensor(TensorCommon):
                     s = s[order]
                     v = v[order, :]
                 else:
-                    u, s, v = np.linalg.svd(v, full_matrices=False)
+                    # u, s, v = np.linalg.svd(v, full_matrices=False)
+                    retry_gesvd = False
+                    try:
+                        u, s, v = spl.svd(v, full_matrices=False)
+                    except Exception:
+                        retry_gesvd = True
+                    if retry_gesvd:
+                        u, s, v = spl.svd(v, full_matrices=False, lapack_driver="gesvd")
+                        print("Retry using gesvd", k, file=sys.stderr)
             svd = (s, u, v)
             svds[k] = svd
             dims[k] = 0
