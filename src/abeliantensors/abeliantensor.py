@@ -6,9 +6,11 @@ import os
 import warnings
 from collections.abc import Iterable
 from copy import deepcopy
+from typing import Literal
 
 import numpy as np
 import scipy.sparse.linalg as spsla
+from numpy.typing import DTypeLike
 
 from .symmetry import AbelianGroup, CyclicGroup, U1Group
 from .tensorcommon import TensorCommon
@@ -266,7 +268,7 @@ class AbelianTensor(TensorCommon):
         qodulus=_UNSET,
         sects=None,
         dirs=None,
-        dtype=np.float64,
+        dtype: DTypeLike = np.float64,
         defval=0,
         charge=None,
         invar=True,
@@ -411,11 +413,18 @@ class AbelianTensor(TensorCommon):
 
     @classmethod
     def eye(
-        cls, dim, qim=None, qodulus=_UNSET, dtype=np.float64, symmetry=None
+        cls,
+        dim,
+        qim=None,
+        qodulus=_UNSET,
+        dtype: DTypeLike = np.float64,
+        symmetry=None,
     ):
         """Return an identity tensor of ``shape = [dim, dim]``, ``qhape = [qim,
         qim]`` and ``dirs = [1, -1]``.
         """
+        if qim is None:
+            raise TypeError(f"{cls.__name__}.eye requires qim.")
         if not cls.check_qim_dim_match(qim, dim):
             raise ValueError(
                 f"qim {qim} and dim {dim} must have the same length."
@@ -460,6 +469,8 @@ class AbelianTensor(TensorCommon):
         valid blocks of the new tensor to ``numpy_func(block_shape, *args,
         **kwargs)``.
         """
+        if qhape is None:
+            raise TypeError(f"{cls.__name__} requires a qhape.")
         symmetry = _resolve_symmetry(cls, symmetry, qodulus)
         if charge is None:
             charge = symmetry.identity
@@ -659,7 +670,14 @@ class AbelianTensor(TensorCommon):
         res.charge = self.symmetry.neg(res.charge)
         return res
 
-    def astype(self, dtype, casting="unsafe", copy=True):
+    def astype(
+        self,
+        dtype: DTypeLike,
+        casting: Literal[
+            "no", "equiv", "safe", "same_kind", "unsafe"
+        ] = "unsafe",
+        copy: bool = True,
+    ):
         """Change the dtype of the tensor.
 
         By default creates a copy, but works in place if ``copy=False``.
@@ -996,6 +1014,10 @@ class AbelianTensor(TensorCommon):
         along every index. Note hence that the ordering of the `qnums` in the
         `qhape` given has no effect.
         """
+        if shape is None or qhape is None:
+            raise TypeError(
+                f"{cls.__name__}.from_ndarray requires shape and qhape."
+            )
         if dirs is None:
             warnings.warn(
                 "In from_ndarray, dirs was not given and is thus generated to "
@@ -1148,8 +1170,13 @@ class AbelianTensor(TensorCommon):
         Instead of explicitly giving a `shape` and a `qhape`, a tensor whose
         form data is to be used can also be given.
         """
-        shape = tensor.shape if shape is None else shape
-        qhape = tensor.qhape if qhape is None else qhape
+        if shape is None or qhape is None:
+            if tensor is None:
+                raise TypeError(
+                    "Give either a tensor or both shape and qhape."
+                )
+            shape = tensor.shape if shape is None else shape
+            qhape = tensor.qhape if qhape is None else qhape
         sorted_qhp = []
         sorted_shp = []
         for qim, dim in zip(qhape, shape):
@@ -1322,6 +1349,17 @@ class AbelianTensor(TensorCommon):
             qhape2 = tensor2.qhape
             shape2 = tensor2.shape
             dirs2 = tensor2.dirs
+        if (
+            qhape1 is None
+            or shape1 is None
+            or dirs1 is None
+            or qhape2 is None
+            or shape2 is None
+            or dirs2 is None
+        ):
+            raise TypeError(
+                "Give tensor1 and tensor2, or their qhape, shape and dirs."
+            )
         if not (
             len(qhape1)
             == len(qhape2)
@@ -1351,7 +1389,7 @@ class AbelianTensor(TensorCommon):
         S_sects,
         minusabs_next_els,
         dims,
-        chis=None,
+        chis,
         eps=0,
         break_degenerate=False,
         degeneracy_eps=1e-6,
@@ -1376,6 +1414,11 @@ class AbelianTensor(TensorCommon):
             trunc_err_func = fct.partial(
                 cls.default_trunc_err_func, norm_sq=norm_sq
             )
+        if not chis:
+            raise ValueError("chis must not be empty.")
+        # Overwritten below; initialized so that they are always bound.
+        chi = chis[0]
+        err = 0
         # Find the smallest chi for which the error is small enough.
         # If none is found, use the largest chi allowed.
         if sum(S) != 0:
@@ -1465,8 +1508,8 @@ class AbelianTensor(TensorCommon):
             )
             dirs = [1] * len(index_batches)
         else:
-            if not isinstance(dirs, Iterable):
-                dirs = [dirs]
+            # Copy, since dirs is modified below.
+            dirs = list(dirs) if isinstance(dirs, Iterable) else [dirs]
             if len(dirs) != len(index_batches):
                 raise ValueError(
                     f"Got {len(dirs)} dirs for {len(index_batches)} "
@@ -1515,6 +1558,7 @@ class AbelianTensor(TensorCommon):
         index_batches = [list(map(perm.index, b)) for b in index_batches]
         res = self.transpose(perm)
 
+        transposed_shape = transposed_qhape = transposed_dirs = None
         if return_transposed_shape_data:
             transposed_shape = res.shape.copy()
             transposed_qhape = res.qhape.copy()
@@ -1685,16 +1729,20 @@ class AbelianTensor(TensorCommon):
         `split_indices` does not modify the original tensor, but returns a copy
         or a view.
         """
+        if qims is None:
+            raise TypeError(
+                f"{type(self).__name__}.split_indices requires qims."
+            )
         # Formatting the input so that indices is a list and dim_batches and
         # dim_batches are lists of lists.
         if isinstance(indices, Iterable):
+            indices = list(indices)
             if not len(indices) == len(dims) == len(qims):
                 raise ValueError(
                     "indices, dims and qims must have the same length."
                 )
-            indices = list(indices)
-            dim_batches = list(map(list, dims))
-            qim_batches = list(map(list, qims))
+            dim_batches = [list(dim) for dim in dims]
+            qim_batches = [list(qim) for qim in qims]
             if dirs is None:
                 warnings.warn(
                     "In split_indices, dirs was not given and is "
@@ -2406,6 +2454,11 @@ class AbelianTensor(TensorCommon):
                     u, s, v = spsla.svds(
                         v, k=maxchi, return_singular_vectors=True
                     )
+                    if u is None or v is None:
+                        # Not reached: we ask svds for the singular vectors.
+                        raise RuntimeError(
+                            "svds returned no singular vectors."
+                        )
                     order = np.argsort(-s)
                     u = u[:, order]
                     s = s[order]

@@ -236,3 +236,26 @@ def test_decompositions_accept_single_int_indices(cls):
     M = T.dot(T.conj(), (1, 1))
     S, U = M.eig(0, 1, hermitian=True)
     assert S.shape is not None
+
+
+def test_missing_required_form_data_is_type_error():
+    with pytest.raises(TypeError, match="qim"):
+        AbelianTensor.eye([1, 1])
+    with pytest.raises(TypeError, match="qhape"):
+        AbelianTensor.random([[1, 1]], dirs=[1])
+    with pytest.raises(TypeError, match="shape"):
+        AbelianTensor.from_ndarray(np.zeros(2), qhape=[[0, 1]], dirs=[1])
+    with pytest.raises(TypeError, match="qhape"):
+        AbelianTensor.from_ndarray(np.zeros(2), shape=[[1, 1]], dirs=[1])
+    T = AbelianTensor.random([[2, 1]], qhape=[[0, 1]], dirs=[1])
+    with pytest.raises(TypeError, match="qims"):
+        T.split_indices(0, [[1, 1], [1]])
+
+
+def test_join_indices_does_not_mutate_dirs_argument():
+    T = z2([[1, 1], [1, 1], [1, 1]], [1, 1, 1])
+    # A one-index batch such as [2] is handled separately and used to be
+    # deleted from the caller's dirs list.
+    dirs = [1, 1]
+    T.join_indices([0, 1], [2], dirs=dirs)
+    assert dirs == [1, 1]
