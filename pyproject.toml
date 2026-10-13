@@ -30,3 +30,4 @@ demo = ["ncon>=2", "matplotlib", "seaborn"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+filterwarnings = ["error::DeprecationWarning"]

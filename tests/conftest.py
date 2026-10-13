@@ -56,7 +56,7 @@ def pytest_generate_tests(metafunc):
     tensorclass_opts = (
         metafunc.config.getoption("tensorclass") or default_classes
     )
-    tensorclasses = map(parse_tensorclass, tensorclass_opts)
+    tensorclasses = list(map(parse_tensorclass, tensorclass_opts))
     if "tensorclass" in metafunc.fixturenames:
         metafunc.parametrize("tensorclass", tensorclasses, indirect=True)
     n_iters = metafunc.config.getoption("n_iters")

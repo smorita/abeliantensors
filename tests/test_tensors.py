@@ -279,9 +279,9 @@ def test_to_and_from_matrix(
         # Partition the indices of T into two sets, i_list and its complement.
         n = np.random.randint(low=0, high=len(T.shape) + 1)
         if n:
-            i_list = list(
-                np.random.choice(len(T.shape), size=n, replace=False)
-            )
+            i_list = np.random.choice(
+                len(T.shape), size=n, replace=False
+            ).tolist()
         else:
             i_list = []
         i_list_compl = sorted(set(range(len(T.shape))) - set(i_list))
@@ -601,9 +601,9 @@ def test_svd(
         T_np = T.to_ndarray()
         n = np.random.randint(low=1, high=len(T.shape))
         if n:
-            i_list = list(
-                np.random.choice(len(T.shape), size=n, replace=False)
-            )
+            i_list = np.random.choice(
+                len(T.shape), size=n, replace=False
+            ).tolist()
         else:
             i_list = []
         i_list_compl = sorted(set(range(len(T.shape))) - set(i_list))
@@ -651,6 +651,26 @@ def test_svd(
         S_svd_np = S_svd_np[order]
         U_svd_np = U_svd_np[..., order]
         V_svd_np = V_svd_np[order, ...]
+        # With eps close to machine precision, the dense SVD can report a
+        # singular value that is zero by symmetry as round-off (e.g. 6e-14 for
+        # S[0] ~ 16 with NumPy 2 / OpenBLAS 0.3.34), and keep it because
+        # dropping it would exceed eps. The symmetric SVD gets an exact zero
+        # and drops it. Both are correct, so compare the common part and
+        # check that the extra singular values are numerically zero.
+        k = min(len(S_np_svd), len(S_svd_np))
+        S_max = max(np.max(S_np_svd, initial=0), np.max(S_svd_np, initial=0))
+        assert np.all(S_np_svd[k:] <= S_max * 1e-12)
+        assert np.all(S_svd_np[k:] <= S_max * 1e-12)
+        U_np_svd, S_np_svd, V_np_svd = (
+            U_np_svd[..., :k],
+            S_np_svd[:k],
+            V_np_svd[:k, ...],
+        )
+        U_svd_np, S_svd_np, V_svd_np = (
+            U_svd_np[..., :k],
+            S_svd_np[:k],
+            V_svd_np[:k, ...],
+        )
         # There's a gauge freedom in SVD, so find the gauge transformation that
         # maps between U_svd_np and U_np_svd, and revert that transformation.
         g = np.tensordot(U_svd_np.conjugate(), U_np_svd, (range(n), range(n)))
@@ -1028,11 +1048,9 @@ def test_ncon_svd_ncon(
             # SVD the result of the contraction
             n_svd_inds = np.random.randint(low=1, high=len(T.shape))
             if n_svd_inds:
-                i_list = list(
-                    np.random.choice(
-                        len(T.shape), size=n_svd_inds, replace=False
-                    )
-                )
+                i_list = np.random.choice(
+                    len(T.shape), size=n_svd_inds, replace=False
+                ).tolist()
             else:
                 i_list = []
             i_list_compl = sorted(set(range(len(T.shape))) - set(i_list))
