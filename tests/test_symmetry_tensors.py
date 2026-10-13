@@ -70,10 +70,29 @@ def test_mixing_symmetries_is_rejected():
     B = AbelianTensor.random(
         [[1, 1]], qhape=[[0, 1]], dirs=[1], symmetry=CyclicGroup(3)
     )
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError, match="different symmetries"):
         _ = A + B
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError, match="different symmetries"):
         _ = A.allclose(B)
+    with pytest.raises(ValueError, match="different symmetries"):
+        _ = A.dot(B.flip_dir(0), (0, 0))
+    with pytest.raises(ValueError, match="different symmetries"):
+        _ = A.matrix_dot(B.flip_dir(0))
+    D = AbelianTensor.random(
+        [[1, 1]],
+        qhape=[[0, 1]],
+        dirs=[-1],
+        invar=False,
+        symmetry=CyclicGroup(3),
+    )
+    M = AbelianTensor.random(
+        [[1, 1], [1, 1]],
+        qhape=[[0, 1], [0, 1]],
+        dirs=[1, -1],
+        symmetry=CyclicGroup(2),
+    )
+    with pytest.raises(ValueError, match="different symmetries"):
+        _ = M.multiply_diag(D, 1)
 
 
 def test_legacy_subclass_with_qodulus_class_attribute():
@@ -180,8 +199,10 @@ def test_product_qodulus_attribute_is_attribute_error():
 def test_product_tensor_does_not_mix_with_cyclic():
     A = TensorZ2Z2.random([[1] * 4], dirs=[1])
     B = TensorZ2.random([[1, 1]], dirs=[1])
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError, match="different symmetries"):
         _ = A + B
+    with pytest.raises(ValueError, match="different symmetries"):
+        _ = A.dot(B.flip_dir(0), (0, 0))
 
 
 def test_scalar_with_identity_tuple_charge_stays_invariant():

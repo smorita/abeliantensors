@@ -96,6 +96,20 @@ def _resolve_symmetry(cls, symmetry, qodulus):
     return symmetry
 
 
+def _check_same_symmetry(a, b):
+    """Raise ValueError if tensors `a` and `b` have different symmetries.
+
+    This is a real exception rather than an assert, so that it is not
+    stripped by ``python -O``: combining e.g. Z2 and Z3 tensors would
+    otherwise silently give wrong results.
+    """
+    if a.symmetry != b.symmetry:
+        raise ValueError(
+            "Cannot combine tensors with different symmetries: "
+            f"{a.symmetry!r} and {b.symmetry!r}."
+        )
+
+
 class AbelianTensor(TensorCommon):
     """A class for symmetry preserving tensors capabable of handling abelian
     symmetry groups.
@@ -659,14 +673,14 @@ class AbelianTensor(TensorCommon):
         res = self.empty_like()
         res.dtype = res_dtype
         if isinstance(B, AbelianTensor):
-            # self and B should be of the same form or one should be a scalar.
-            # They should also have the same symmetry.
+            # self and B should have the same symmetry, and the same form or
+            # one should be a scalar.
+            _check_same_symmetry(self, B)
             assert (
                 type(self).check_form_match(tensor1=self, tensor2=B)
                 or self.isscalar()
                 or B.isscalar()
             )
-            assert self.symmetry == B.symmetry
             # They may have different charges and dirs, but this generates a
             # warning.
             if self.charge != B.charge and not self.isscalar():
@@ -738,9 +752,9 @@ class AbelianTensor(TensorCommon):
 
         See `numpy.allclose` for explanations of the tolerance arguments.
         """
-        # self and B should be of the same form and have the same symmetry.
+        # self and B should have the same symmetry and be of the same form.
+        _check_same_symmetry(self, B)
         assert type(self).check_form_match(tensor1=self, tensor2=B)
-        assert self.symmetry == B.symmetry
         # They may have different dirs, but this generates a warning.
         relative_dirs = tuple(map(opr.mul, self.dirs, B.dirs))
         for i, d in enumerate(relative_dirs):
@@ -1795,7 +1809,7 @@ class AbelianTensor(TensorCommon):
         if `direction` is "left" or "l". This operation is just done without
         constructing the full diagonal matrix.
         """
-        assert diag_vect.symmetry == self.symmetry
+        _check_same_symmetry(self, diag_vect)
         assert diag_vect.charge == self.symmetry.identity
         assert len(diag_vect.shape) == 1
         assert direction in {"r", "l", "left", "right"}
@@ -1829,13 +1843,22 @@ class AbelianTensor(TensorCommon):
         res.charge = g.add(self.charge, diag_vect.charge)
         return res
 
+    def dot(self, other, indices):
+        """Contract `self` with `other` over the given pairs of `indices`.
+
+        Raises ValueError if the two tensors have different symmetries. See
+        `TensorCommon.dot` for the details.
+        """
+        _check_same_symmetry(self, other)
+        return super().dot(other, indices)
+
     def matrix_dot(self, other):
         """Take the dot product of two tensors of order < 3.
 
         If either one is a matrix, it must be invariant and have ``defval ==
         0``.
         """
-        assert self.symmetry == other.symmetry
+        _check_same_symmetry(self, other)
         g = self.symmetry
 
         # The following essentially is a massive case statement on whether self
