@@ -1,7 +1,7 @@
 from collections.abc import Iterable
 
 from .abeliantensor import AbelianTensor
-from .symmetry import CyclicGroup, U1Group
+from .symmetry import CyclicGroup, ProductGroup, U1Group
 
 
 class FiniteAbelianTensor(AbelianTensor):
@@ -135,3 +135,24 @@ class TensorU1(AbelianTensor):
     """
 
     symmetry = U1Group()
+
+
+class TensorZ2Z2(FiniteAbelianTensor):
+    """A class for Z2 x Z2 symmetric tensors.
+
+    Quantum numbers are pairs ``(a, b)`` with ``a, b`` in ``{0, 1}``. See
+    `FiniteAbelianTensor` and `AbelianTensor` for the details.
+    """
+
+    symmetry = ProductGroup(CyclicGroup(2), CyclicGroup(2))
+
+
+class TensorZ2Z3(FiniteAbelianTensor):
+    """A class for Z2 x Z3 symmetric tensors.
+
+    Quantum numbers are pairs ``(a, b)`` with ``a`` in ``{0, 1}`` and ``b`` in
+    ``{0, 1, 2}``. See `FiniteAbelianTensor` and `AbelianTensor` for the
+    details.
+    """
+
+    symmetry = ProductGroup(CyclicGroup(2), CyclicGroup(3))

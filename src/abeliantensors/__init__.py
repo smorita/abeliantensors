@@ -4,6 +4,8 @@ from .symmetrytensors import (
     FiniteAbelianTensor,
     TensorU1,
     TensorZ2,
+    TensorZ2Z2,
+    TensorZ2Z3,
     TensorZ3,
     TensorZN,
 )
@@ -20,6 +22,8 @@ __all__ = [
     "TensorCommon",
     "TensorU1",
     "TensorZ2",
+    "TensorZ2Z2",
+    "TensorZ2Z3",
     "TensorZ3",
     "TensorZN",
     "U1Group",

@@ -425,7 +425,15 @@ def test_trace(
 
 
 def test_multiply_diag(
-    n_iters, tensorclass, n_qnums, rshape, rqhape, rdirs, rcharge, rtensor
+    n_iters,
+    tensorclass,
+    n_qnums,
+    rshape,
+    rqhape,
+    rdirs,
+    rcharge,
+    rtensor,
+    qid,
 ):
     """Generate a random tensor and diagonal matrix, use multiply_diag to
     multiply the them, compare against NumPy.
@@ -443,7 +451,7 @@ def test_multiply_diag(
         D_qhape = None if T.qhape is None else [T.qhape[i]]
         D_dirs = None if T.dirs is None else [T.dirs[i] * (1 - 2 * right)]
         D = rtensor(
-            shape=D_shape, qhape=D_qhape, dirs=D_dirs, invar=False, charge=0
+            shape=D_shape, qhape=D_qhape, dirs=D_dirs, invar=False, charge=qid
         )
 
         # Do the multiplication using NumPy.
@@ -709,6 +717,7 @@ def test_eig(
     rdirs,
     rcharge,
     rtensor,
+    qid,
     eps,
     truncate,
     hermitian,
@@ -732,7 +741,7 @@ def test_eig(
             shp[j] = shp[i].copy()
             qhp[j] = qhp[i].copy()
             dirs[j] = -1
-        T = rtensor(shape=shp, qhape=qhp, dirs=dirs, charge=0)
+        T = rtensor(shape=shp, qhape=qhp, dirs=dirs, charge=qid)
         if hermitian:
             T_transpose = T.copy()
             for i, j in zip(i_list, i_list_compl):

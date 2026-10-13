@@ -691,7 +691,9 @@ class AbelianTensor(TensorCommon):
             for k, v in self.sects.items():
                 res_block = op_func(v, B, *args, **kwargs)
                 res.sects[k] = res_block
-        if (res.shape or res.charge) and res.defval != 0:
+        if (
+            res.shape or res.charge != res.symmetry.identity
+        ) and res.defval != 0:
             res.invar = False
         return res
 

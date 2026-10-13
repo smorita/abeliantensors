@@ -3,7 +3,23 @@
 import numpy as np
 import pytest
 
-from abeliantensors import Tensor, TensorU1, TensorZ2, TensorZ3
+from abeliantensors import (
+    Tensor,
+    TensorU1,
+    TensorZ2,
+    TensorZ2Z2,
+    TensorZ2Z3,
+    TensorZ3,
+)
+
+TENSORCLASSES = {
+    "tensor": Tensor,
+    "tensorz2": TensorZ2,
+    "tensorz3": TensorZ3,
+    "tensoru1": TensorU1,
+    "tensorz2z2": TensorZ2Z2,
+    "tensorz2z3": TensorZ2Z3,
+}
 
 
 @pytest.fixture(scope="module")
@@ -36,25 +52,25 @@ def parse_tensorclass(s):
     """Take a string representing a tensorclass, such as "TensorZ2", and return
     the corresponding class.
     """
-    s = s.lower().strip()
-    if s == "tensor":
-        return Tensor
-    elif s == "tensorz2":
-        return TensorZ2
-    elif s == "tensorz3":
-        return TensorZ3
-    elif s == "tensoru1":
-        return TensorU1
-    else:
+    try:
+        return TENSORCLASSES[s.lower().strip()]
+    except KeyError:
         msg = f"Unknown tensor class name: {s}"
-        raise ValueError(msg)
+        raise ValueError(msg) from None
 
 
 def pytest_generate_tests(metafunc):
     """Set up passing the command line arguments for n_iters and for the
     tensorclass fixture, and give the latter's default value.
     """
-    default_classes = ["Tensor", "TensorZ2", "TensorU1", "TensorZ3"]
+    default_classes = [
+        "Tensor",
+        "TensorZ2",
+        "TensorU1",
+        "TensorZ3",
+        "TensorZ2Z2",
+        "TensorZ2Z3",
+    ]
     tensorclass_opts = (
         metafunc.config.getoption("tensorclass") or default_classes
     )
@@ -66,18 +82,30 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("n_iters", [n_iters])
 
 
+def _qnum_elements(tensorclass):
+    """Return the list of all possible quantum numbers of the tensorclass, or
+    None if there are infinitely many or the class has no symmetry.
+    """
+    symmetry = getattr(tensorclass, "symmetry", None)
+    return None if symmetry is None else symmetry.elements()
+
+
 @pytest.fixture
 def n_qnums(tensorclass):
     """Return the number of different possible quantum numbers for the given
     tensorclass, or None if the answer is infinite or undefined.
     """
-    if tensorclass == TensorZ2:
-        n_qnums = 2
-    elif tensorclass == TensorZ3:
-        n_qnums = 3
-    else:
-        n_qnums = None
-    return n_qnums
+    elements = _qnum_elements(tensorclass)
+    return None if elements is None else len(elements)
+
+
+@pytest.fixture
+def qid(tensorclass):
+    """Return the identity charge of the given tensorclass (0 for `Tensor`
+    and U(1)).
+    """
+    symmetry = getattr(tensorclass, "symmetry", None)
+    return 0 if symmetry is None else symmetry.identity
 
 
 @pytest.fixture
@@ -96,6 +124,12 @@ def rshape(n_qnums):
         shape = []
         for _i in range(n):
             if n_qnums is None:
+                dim_dim = np.random.randint(low=1, high=5)
+            elif n_qnums > 3:
+                # Using every sector of a larger group (e.g. 6 for Z2 x Z3)
+                # makes the dense comparisons in the tests too big, so use 1
+                # to 4 sectors as for U(1). rqhape always gives the qhape
+                # explicitly, so the default-qhape rules are not involved.
                 dim_dim = np.random.randint(low=1, high=5)
             else:
                 dim_dim = n_qnums
@@ -116,7 +150,7 @@ def rshape(n_qnums):
 
 
 @pytest.fixture
-def rqhape(n_qnums):
+def rqhape(tensorclass, n_qnums):
     """Return a function that generates random `qhape`s for symmetric
     tensors.
     """
@@ -124,14 +158,23 @@ def rqhape(n_qnums):
     def _rqhape(shape, qlow=-3, qhigh=3):
         """Return a random `qhape` for a symmetric tensor.
 
-        `shape` is the corresponding shape. When generating a `qhape` for
-        the `TensorZN` class, quantum numbers are randomly picked from
-        `range(0, n_qnums)`. For `TensorU1`, they are randomly picked from the
-        `range(qlow, qhigh+1)`.
+        `shape` is the corresponding shape. For finite groups, quantum
+        numbers are randomly picked from the group's elements. For `TensorU1`,
+        they are randomly picked from the `range(qlow, qhigh+1)`.
         """
-        if n_qnums is not None:
-            qlow = 0
-            qhigh = n_qnums - 1
+        elements = _qnum_elements(tensorclass)
+        if elements is not None:
+            try:
+                qhape = []
+                for dim in shape:
+                    idx = np.random.choice(
+                        len(elements), len(dim), replace=False
+                    )
+                    qhape.append([elements[i] for i in idx])
+            except TypeError:
+                # This happens when dim is a single number.
+                qhape = None
+            return qhape
         try:
             assert all(len(dim) <= qhigh - qlow + 1 for dim in shape)
         except TypeError:
@@ -173,15 +216,19 @@ def rdirs():
 
 
 @pytest.fixture
-def rcharge():
+def rcharge(tensorclass):
     """Return a function that generates random charges for symmetric
     tensors.
     """
 
     def _rcharge(low=0, high=4):
-        """Return a random charge for a symmetric tensor, i.e. a random integer
-        between `low` and `high`, inclusive.
+        """Return a random charge for a symmetric tensor: a random element of
+        the group for finite groups, otherwise a random integer between `low`
+        and `high`.
         """
+        elements = _qnum_elements(tensorclass)
+        if elements is not None:
+            return elements[np.random.randint(len(elements))]
         return np.random.randint(low=low, high=high)
 
     return _rcharge

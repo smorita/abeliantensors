@@ -6,8 +6,11 @@ import pytest
 from abeliantensors import (
     AbelianTensor,
     CyclicGroup,
+    ProductGroup,
     TensorU1,
     TensorZ2,
+    TensorZ2Z2,
+    TensorZ2Z3,
     TensorZ3,
     TensorZN,
     U1Group,
@@ -123,3 +126,69 @@ def test_repr_and_str_show_symmetry():
     assert "symmetry=CyclicGroup(2)" in repr(T)
     assert ", defval=" in repr(T)
     assert "symmetry = CyclicGroup(2)" in str(T)
+
+
+def test_product_group_classes():
+    Z2, Z3 = CyclicGroup(2), CyclicGroup(3)
+    assert TensorZ2Z2.symmetry == ProductGroup(Z2, Z2)
+    assert TensorZ2Z3.symmetry == ProductGroup(Z2, Z3)
+    T = TensorZ2Z3.zeros([[1] * 6, [1] * 6], dirs=[1, -1])
+    assert T.charge == (0, 0)
+    assert T.qhape[0] == ProductGroup(Z2, Z3).elements()
+
+
+def test_product_default_qhape_requires_one_or_all_sectors():
+    with pytest.raises(ValueError, match="qhape"):
+        TensorZ2Z3.random([[1, 1]], dirs=[1])
+    assert TensorZ2Z3.random([[2]], dirs=[1]).qhape == [[(0, 0)]]
+
+
+def test_charges_compose_in_product_group():
+    A = TensorZ2Z3.random([[1] * 6, [1] * 6], dirs=[1, -1], charge=(1, 2))
+    B = TensorZ2Z3.random([[1] * 6, [1] * 6], dirs=[1, -1], charge=(1, 2))
+    C = A.dot(B, (1, 0))
+    assert C.charge == (0, 1)
+    assert np.allclose(C.to_ndarray(), A.to_ndarray() @ B.to_ndarray())
+    assert A.conj().charge == (1, 1)
+
+
+def test_product_qnums_given_as_lists_are_normalized():
+    T = TensorZ2Z3.random(
+        [[1, 2]], qhape=[[[0, 0], [1, 2]]], dirs=[1], charge=[1, 2]
+    )
+    assert T.qhape == [[(0, 0), (1, 2)]]
+    assert T.charge == (1, 2)
+    assert ((1, 2),) in T.sects
+
+
+def test_binary_op_with_differing_tuple_charges_warns():
+    A = TensorZ2Z3.random([[1] * 6], dirs=[1], charge=(1, 0))
+    B = TensorZ2Z3.random([[1] * 6], dirs=[1], charge=(0, 1))
+    with pytest.warns(UserWarning, match=r"\(1, 0\) and \(0, 1\)"):
+        _ = A + B
+
+
+def test_product_qodulus_attribute_is_attribute_error():
+    T = TensorZ2Z3.random([[1] * 6], dirs=[1])
+    with pytest.warns(DeprecationWarning), pytest.raises(AttributeError):
+        _ = T.qodulus
+
+
+def test_product_tensor_does_not_mix_with_cyclic():
+    A = TensorZ2Z2.random([[1] * 4], dirs=[1])
+    B = TensorZ2.random([[1, 1]], dirs=[1])
+    with pytest.raises(AssertionError):
+        _ = A + B
+
+
+def test_scalar_with_identity_tuple_charge_stays_invariant():
+    """The identity (0, 0) of a product group is a truthy tuple; it must not
+    be mistaken for a non-zero charge.
+    """
+    A = TensorZ2Z3.random([[1] * 6], dirs=[1])
+    B = TensorZ2Z3.random([[1] * 6], dirs=[-1])
+    s = A.dot(B, (0, 0))
+    assert s.isscalar()
+    assert s.invar
+    assert (s * 2.0).invar
+    assert (s + s).invar
