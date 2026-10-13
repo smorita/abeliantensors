@@ -10,7 +10,7 @@ from copy import deepcopy
 import numpy as np
 import scipy.sparse.linalg as spsla
 
-from .symmetry import CyclicGroup, U1Group
+from .symmetry import AbelianGroup, CyclicGroup, U1Group
 from .tensorcommon import TensorCommon
 
 # Some utility functions for generating methods of AbelianTensor efficiently.
@@ -77,15 +77,16 @@ def _resolve_symmetry(cls, symmetry, qodulus):
 
     `qodulus` is the deprecated way of giving the symmetry: an integer N means
     ``CyclicGroup(N)`` and None means ``U1Group()``. If neither argument is
-    given, the class's own `symmetry` is used, or U(1) if the class does not
-    fix one. A class that fixes its symmetry does not accept a different one.
+    given, the symmetry fixed by the class is used, or U(1) if the class does
+    not fix one. A class that fixes its symmetry does not accept a different
+    one.
     """
     if qodulus is not _UNSET:
         if symmetry is not None:
             raise TypeError("Give either `symmetry` or `qodulus`, not both.")
         _warn_qodulus_deprecated()
         symmetry = U1Group() if qodulus is None else CyclicGroup(qodulus)
-    fixed = cls.symmetry
+    fixed = _fixed_symmetry(cls)
     if symmetry is None:
         return fixed if fixed is not None else U1Group()
     if fixed is not None and symmetry != fixed:
@@ -94,6 +95,20 @@ def _resolve_symmetry(cls, symmetry, qodulus):
             f"symmetry {symmetry!r}."
         )
     return symmetry
+
+
+def _fixed_symmetry(cls):
+    """Return the symmetry that `cls` fixes, or None if it does not fix one.
+
+    A class fixes its symmetry if it, or a parent class below `AbelianTensor`,
+    sets the class attribute `symmetry`.
+    """
+    for klass in cls.__mro__:
+        if klass is AbelianTensor:
+            return None
+        if "symmetry" in vars(klass):
+            return vars(klass)["symmetry"]
+    return None
 
 
 def _check_same_symmetry(a, b):
@@ -203,9 +218,10 @@ class AbelianTensor(TensorCommon):
     conforms to this definition.
     """
 
-    # The symmetry group fixed by the class, or None if it is given per
-    # instance. Subclasses such as TensorZ2 set this.
-    symmetry = None
+    # The symmetry group. AbelianTensor itself defaults to U(1) and accepts any
+    # group per instance; subclasses such as TensorZ2 fix it by setting this
+    # class attribute (see _fixed_symmetry).
+    symmetry: AbelianGroup = U1Group()
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)

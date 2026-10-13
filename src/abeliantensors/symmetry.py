@@ -44,7 +44,7 @@ class AbelianGroup:
         """
         raise NotImplementedError
 
-    def elements(self):
+    def elements(self) -> list | None:
         """Return a list of all the elements, or None if the group is
         infinite.
         """
@@ -107,7 +107,7 @@ class CyclicGroup(AbelianGroup):
     def normalize(self, q):
         return _as_int(q) % self.n
 
-    def elements(self):
+    def elements(self) -> list | None:
         return list(range(self.n))
 
     def _key(self):
@@ -173,7 +173,7 @@ class ProductGroup(AbelianGroup):
             )
         return tuple(f.normalize(x) for f, x in zip(self.factors, q))
 
-    def elements(self):
+    def elements(self) -> list | None:
         factor_elements = [f.elements() for f in self.factors]
         if any(e is None for e in factor_elements):
             return None

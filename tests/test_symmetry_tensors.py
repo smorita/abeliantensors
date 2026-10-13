@@ -8,6 +8,7 @@ import pytest
 from abeliantensors import (
     AbelianTensor,
     CyclicGroup,
+    FiniteAbelianTensor,
     ProductGroup,
     Tensor,
     TensorU1,
@@ -270,3 +271,22 @@ def test_tensor_check_form_match_accepts_symmetry():
     assert Tensor.check_form_match(
         shape1=[2, 3], shape2=[2, 3], symmetry=CyclicGroup(2)
     )
+
+
+def test_default_qhape_with_infinite_group_asks_for_qhape():
+    class TensorZ2U1(FiniteAbelianTensor):
+        symmetry = ProductGroup(CyclicGroup(2), U1Group())
+
+    with pytest.raises(ValueError, match="qhape"):
+        TensorZ2U1.random([[1, 1]], dirs=[1])
+    T = TensorZ2U1.random([[1, 1]], qhape=[[(0, 0), (1, 5)]], dirs=[1])
+    assert T.qhape == [[(0, 0), (1, 5)]]
+
+
+def test_subclass_without_symmetry_is_not_fixed():
+    class MyTensor(AbelianTensor):
+        pass
+
+    assert MyTensor([[1]], qhape=[[0]], dirs=[1]).symmetry == U1Group()
+    T = MyTensor([[1]], qhape=[[0]], dirs=[1], symmetry=CyclicGroup(3))
+    assert T.symmetry == CyclicGroup(3)

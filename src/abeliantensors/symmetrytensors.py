@@ -69,6 +69,11 @@ class FiniteAbelianTensor(AbelianTensor):
         if len(dim) == 1:
             return [cls.symmetry.identity]
         elements = cls.symmetry.elements()
+        if elements is None:
+            raise ValueError(
+                f"Cannot generate a default qhape for {cls.symmetry!r}, which "
+                "has infinitely many elements: give qhape explicitly."
+            )
         if len(dim) == len(elements):
             return list(elements)
         raise ValueError(
