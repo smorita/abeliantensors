@@ -26,6 +26,17 @@ To use it from another uv project:
 uv add --editable /path/to/abeliantensors
 ```
 
+### Demo
+
+```
+cd demo
+uv run --group demo python trg_demo.py   # writes latest_trg_performance.pdf
+```
+Runs TRG on the critical Ising model for bond dimensions 2–70 with both
+`Tensor` and `TensorZ2`, timing each step. A full run takes several hours
+(on a laptop, about 15 minutes to reach chi = 43 for `Tensor` alone); reduce
+`chis` in `main()` for a quick check.
+
 ## Usage
 
 For reference documentation see [here][reference-url].
