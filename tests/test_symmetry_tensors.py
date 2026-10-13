@@ -1,5 +1,7 @@
 """Tests for how AbelianTensor and its subclasses use symmetry groups."""
 
+import warnings
+
 import numpy as np
 import pytest
 
@@ -7,6 +9,7 @@ from abeliantensors import (
     AbelianTensor,
     CyclicGroup,
     ProductGroup,
+    Tensor,
     TensorU1,
     TensorZ2,
     TensorZ2Z2,
@@ -192,3 +195,57 @@ def test_scalar_with_identity_tuple_charge_stays_invariant():
     assert s.invar
     assert (s * 2.0).invar
     assert (s + s).invar
+
+
+@pytest.mark.parametrize(
+    "make",
+    [
+        lambda: AbelianTensor([[1]], qhape=[[0]], dirs=[1], qodulus=2),
+        lambda: AbelianTensor.random(
+            [[1, 1]], qhape=[[0, 1]], dirs=[1], qodulus=2
+        ),
+        lambda: AbelianTensor.zeros(
+            [[1, 1]], qhape=[[0, 1]], dirs=[1], qodulus=2
+        ),
+        lambda: TensorZ2.eye([1, 1], qodulus=2),
+        lambda: TensorZ2.random([[1, 1]], dirs=[1], qodulus=2),
+    ],
+    ids=["init", "random", "zeros", "eye", "subclass-random"],
+)
+def test_qodulus_warning_points_at_caller(make):
+    """Python shows a DeprecationWarning by default only when it is attributed
+    to the caller's code, not to a frame inside the library.
+    """
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        make()
+    deprecations = [
+        w for w in caught if issubclass(w.category, DeprecationWarning)
+    ]
+    assert deprecations
+    assert deprecations[0].filename == __file__
+
+
+def test_malformed_product_key_is_key_error():
+    T = TensorZ2Z2.random([[1] * 4, [1] * 4], dirs=[1, -1])
+    with pytest.raises(KeyError, match="quantum numbers"):
+        _ = T[(0, 0)]
+
+
+def test_check_form_match_accepts_deprecated_qodulus():
+    with pytest.warns(DeprecationWarning, match="qodulus"):
+        assert AbelianTensor.check_form_match(
+            qhape1=[[0, 1, 2]],
+            shape1=[[1, 2, 3]],
+            dirs1=[1],
+            qhape2=[[0, 2, 1]],
+            shape2=[[1, 2, 3]],
+            dirs2=[-1],
+            qodulus=3,
+        )
+
+
+def test_tensor_check_form_match_accepts_symmetry():
+    assert Tensor.check_form_match(
+        shape1=[2, 3], shape2=[2, 3], symmetry=CyclicGroup(2)
+    )

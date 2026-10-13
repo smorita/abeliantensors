@@ -14,6 +14,8 @@ def _as_int(q):
     """Return `q` as a Python int, or raise ValueError if it is not an
     integer.
     """
+    if type(q) is int:
+        return q
     if isinstance(q, numbers.Integral):
         return int(q)
     raise ValueError(f"Quantum number must be an integer, got {q!r}.")

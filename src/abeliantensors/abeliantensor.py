@@ -2,6 +2,7 @@ import functools as fct
 import heapq
 import itertools as itt
 import operator as opr
+import os
 import warnings
 from collections.abc import Iterable
 from copy import deepcopy
@@ -57,6 +58,19 @@ def _arg_swapper(op):
 # Sentinel for detecting whether the deprecated `qodulus` argument was given.
 _UNSET = object()
 
+# Frames in this package are skipped when attributing deprecation warnings, so
+# that they point at the user's code and are shown by Python's default filters.
+_PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__)) + os.sep
+
+
+def _warn_qodulus_deprecated():
+    warnings.warn(
+        "The `qodulus` argument is deprecated. Use "
+        "`symmetry=CyclicGroup(n)` or `symmetry=U1Group()` instead.",
+        DeprecationWarning,
+        skip_file_prefixes=(_PACKAGE_DIR,),
+    )
+
 
 def _resolve_symmetry(cls, symmetry, qodulus):
     """Return the `AbelianGroup` that a new tensor of class `cls` should have.
@@ -69,12 +83,7 @@ def _resolve_symmetry(cls, symmetry, qodulus):
     if qodulus is not _UNSET:
         if symmetry is not None:
             raise TypeError("Give either `symmetry` or `qodulus`, not both.")
-        warnings.warn(
-            "The `qodulus` argument is deprecated. Use "
-            "`symmetry=CyclicGroup(n)` or `symmetry=U1Group()` instead.",
-            DeprecationWarning,
-            stacklevel=3,
-        )
+        _warn_qodulus_deprecated()
         symmetry = U1Group() if qodulus is None else CyclicGroup(qodulus)
     fixed = cls.symmetry
     if symmetry is None:
@@ -458,6 +467,12 @@ class AbelianTensor(TensorCommon):
         except KeyError:
             if not isinstance(k, tuple) or not len(k) == len(self.qhape):
                 raise KeyError(f"Malformed block key: {str(k)}") from None
+            if not all(q in qim for q, qim in zip(k, self.qhape)):
+                msg = (
+                    "Requested block has non-existent quantum numbers: "
+                    f"{str(k)}"
+                )
+                raise KeyError(msg) from None
             if not self.is_valid_key(k):
                 raise KeyError(
                     f"Requested a block forbidden by symmetry: {str(k)}"
@@ -1157,6 +1172,7 @@ class AbelianTensor(TensorCommon):
         shape2=None,
         dirs2=None,
         symmetry=None,
+        qodulus=_UNSET,
     ):
         """Check that the form data of two tensors match.
 
@@ -1167,6 +1183,13 @@ class AbelianTensor(TensorCommon):
         `shapes`, and `dirs` and a `symmetry` can also be given (by default
         the one of `tensor1`).
         """
+        if qodulus is not _UNSET:
+            if symmetry is not None:
+                raise TypeError(
+                    "Give either `symmetry` or `qodulus`, not both."
+                )
+            _warn_qodulus_deprecated()
+            symmetry = U1Group() if qodulus is None else CyclicGroup(qodulus)
         if tensor1 is not None:
             qhape1 = tensor1.qhape
             shape1 = tensor1.shape

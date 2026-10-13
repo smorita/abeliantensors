@@ -216,6 +216,7 @@ class Tensor(TensorCommon, np.ndarray):
         shape2=None,
         dirs2=None,
         qodulus=None,
+        symmetry=None,
     ):
         """Check that the given two tensors have the same form in the sense
         that, i.e. that their indices have the same dimensions. Instead of
