@@ -110,6 +110,20 @@ def _check_same_symmetry(a, b):
         )
 
 
+def _check_form_data(cls, shape, qhape, dirs):
+    """Raise ValueError if `shape`, `qhape` and `dirs` do not fit together."""
+    if not cls.check_qhape_shape_match(qhape, shape):
+        raise ValueError(
+            f"qhape {qhape} does not match shape {shape}: every index needs "
+            "one quantum number per sector."
+        )
+    if len(dirs) != len(shape):
+        raise ValueError(
+            f"dirs {dirs} has {len(dirs)} entries, but the tensor has "
+            f"{len(shape)} indices."
+        )
+
+
 class AbelianTensor(TensorCommon):
     """A class for symmetry preserving tensors capabable of handling abelian
     symmetry groups.
@@ -233,7 +247,8 @@ class AbelianTensor(TensorCommon):
         the `Tensor` class, it must in fact be set. `dirs` defaults to
         ``[1,1,...,1]``, `sects` defaults to ``{}``.
         """
-        assert qhape is not None
+        if qhape is None:
+            raise TypeError(f"{type(self).__name__} requires a qhape.")
         if dirs is None:
             dirs = [1] * len(shape)
             warnings.warn(
@@ -247,10 +262,12 @@ class AbelianTensor(TensorCommon):
         charge = symmetry.normalize(charge)
         shape = list(map(list, shape))
         qhape = [[symmetry.normalize(q) for q in qim] for qim in qhape]
-        assert type(self).check_qhape_shape_match(qhape, shape)
-        assert len(shape) == len(dirs)
-        if invar and charge != symmetry.identity:
-            assert defval == 0
+        _check_form_data(type(self), shape, qhape, dirs)
+        if invar and charge != symmetry.identity and defval != 0:
+            raise ValueError(
+                "An invariant tensor with a non-identity charge must have "
+                f"defval 0, got {defval}."
+            )
         if sects is None:
             sects = {}
 
@@ -359,7 +376,10 @@ class AbelianTensor(TensorCommon):
         """Return an identity tensor of ``shape = [dim, dim]``, ``qhape = [qim,
         qim]`` and ``dirs = [1, -1]``.
         """
-        assert cls.check_qim_dim_match(qim, dim)
+        if not cls.check_qim_dim_match(qim, dim):
+            raise ValueError(
+                f"qim {qim} and dim {dim} must have the same length."
+            )
         dim = list(dim)
         qim = list(qim)
         sects = {}
@@ -406,8 +426,7 @@ class AbelianTensor(TensorCommon):
         charge = symmetry.normalize(charge)
         shape = list(map(list, shape))
         qhape = [[symmetry.normalize(q) for q in qim] for qim in qhape]
-        assert cls.check_qhape_shape_match(qhape, shape)
-        assert len(dirs) == len(shape)
+        _check_form_data(cls, shape, qhape, dirs)
 
         # We use a fancy way of passing optional arguments to __init__ to avoid
         # setting default values separately in two places.
