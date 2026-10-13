@@ -1121,29 +1121,61 @@ class AbelianTensor(TensorCommon):
         """Check internal consistency of a tensor.
 
         Check that self conforms to the defition given in the documentation
-        of the class. If yes, return True, otherwise raise an `AssertionError`.
-        This method is meant to be used by the user (probably for debugging)
-        and is not called anywhere in the class.
+        of the class. If yes, return True, otherwise raise an `AssertionError`
+        that says what is wrong (also under ``python -O``). This method is
+        meant to be used by the user (probably for debugging) and is not
+        called anywhere in the class.
         """
-        assert len(self.shape) == len(self.qhape) == len(self.dirs)
+
+        def check(condition, msg):
+            # An explicit raise rather than assert, so that the check also
+            # works under python -O.
+            if not condition:
+                raise AssertionError(msg)
+
+        check(
+            len(self.shape) == len(self.qhape) == len(self.dirs),
+            "shape, qhape and dirs have different lengths: "
+            f"{len(self.shape)}, {len(self.qhape)}, {len(self.dirs)}.",
+        )
         # Qnums must be unique within a qim and correspond one-to-one with
         # dimensions in dim.
-        assert all(
-            (
-                len(dim) == len(qim) == len(set(qim))
-                for dim, qim in zip(self.shape, self.qhape)
+        for i, (dim, qim) in enumerate(zip(self.shape, self.qhape)):
+            check(
+                len(dim) == len(qim) == len(set(qim)),
+                f"Index {i}: dim {dim} and qim {qim} do not match one-to-one.",
             )
+        check(
+            all(d == 1 or d == -1 for d in self.dirs),
+            f"dirs must be +1 or -1, got {self.dirs}.",
         )
-        assert all(d == 1 or d == -1 for d in self.dirs)
-        assert all(
-            q == self.symmetry.normalize(q) for q in sum(self.qhape, [])
+        for q in sum(self.qhape, []):
+            check(
+                q == self.symmetry.normalize(q),
+                f"Quantum number {q!r} is not in canonical form for "
+                f"{self.symmetry!r}.",
+            )
+        check(
+            self.charge == self.symmetry.normalize(self.charge),
+            f"Charge {self.charge!r} is not in canonical form for "
+            f"{self.symmetry!r}.",
         )
-        assert self.charge == self.symmetry.normalize(self.charge)
         # Check that every sect has a valid key and the correct shape and
         # dtype.
         for k, v in self.sects.items():
-            assert v.dtype == self.dtype
-            assert self.is_valid_key(k)
+            check(
+                v.dtype == self.dtype,
+                f"Block {k} has dtype {v.dtype}, tensor has {self.dtype}.",
+            )
+            check(
+                len(k) == len(self.qhape)
+                and all(q in qim for q, qim in zip(k, self.qhape)),
+                f"Block key {k} does not match the qhape.",
+            )
+            check(
+                self.is_valid_key(k),
+                f"Block {k} is forbidden by symmetry.",
+            )
             block_shp_real = v.shape
             qnum_inds = tuple(
                 self.qhape[i].index(qnum) for i, qnum in enumerate(k)
@@ -1151,11 +1183,18 @@ class AbelianTensor(TensorCommon):
             block_shp_claimed = tuple(
                 [self.shape[i][j] for i, j in enumerate(qnum_inds)]
             )
-            assert block_shp_claimed == block_shp_real
+            check(
+                block_shp_claimed == block_shp_real,
+                f"Block {k} has shape {block_shp_real}, the tensor's shape "
+                f"implies {block_shp_claimed}.",
+            )
         if self.invar and (
             self.charge != self.symmetry.identity or not self.isscalar()
         ):
-            assert self.defval == 0
+            check(
+                self.defval == 0,
+                f"An invariant tensor must have defval 0, got {self.defval}.",
+            )
         return True
 
     @classmethod
