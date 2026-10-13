@@ -1,7 +1,5 @@
 # Introduction
 [![Readthedocs status badge][rtd-badge]][rtd-url]
-[![Travis status badge][travis-img]][travis-url]
-[![Codecov status badge][codecov-img]][codecov-url]
 
 abeliantensors is a Python 3 package that implements U(1) and ℤₙ symmetry
 preserving tensors, as described by Singh et al. in
@@ -12,15 +10,19 @@ designed for use in tensor network algorithms, and works well with the
 
 ## Installation
 
-If you just want to use the library:
+This fork is managed with [uv](https://docs.astral.sh/uv/) and requires
+Python ≥ 3.12, NumPy ≥ 2.0, and SciPy ≥ 1.13.
+
 ```
-pip install --user abeliantensors
+git clone https://github.com/smorita/abeliantensors
+cd abeliantensors
+uv sync          # creates .venv with the library and dev tools
+uv run pytest    # run the test suite
 ```
 
-If you also want to modify and develop the library
+To use it from another uv project:
 ```
-git clone https://github.com/mhauru/abeliantensors
-pip install --user -e abeliantensors/[tests,doc]
+uv add --editable /path/to/abeliantensors
 ```
 
 ## Usage
@@ -200,14 +202,10 @@ default), and `--tensorclass` which can be used to specify which
 tensorclass(es) the tests are run on (by default all of them). Here's an
 example of how one might run a specific test repeatedly:
 ```
-pytest tests/test_tensors.py::test_to_and_from_ndarray --tensorclass TensorZ2 --n_iters 1000
+uv run pytest tests/test_tensors.py::test_to_and_from_ndarray --tensorclass TensorZ2 --n_iters 1000
 ```
 
 
 [reference-url]: https://abeliantensors.readthedocs.io/en/latest/
-[travis-img]: https://travis-ci.org/mhauru/abeliantensors.svg?branch=master
-[travis-url]: https://travis-ci.org/mhauru/abeliantensors
-[codecov-img]: https://codecov.io/gh/mhauru/abeliantensors/branch/master/graph/badge.svg
-[codecov-url]: https://codecov.io/gh/mhauru/abeliantensors
 [rtd-badge]: https://readthedocs.org/projects/abeliantensors/badge/?version=latest
 [rtd-url]: https://abeliantensors.readthedocs.io/en/latest/?badge=latest

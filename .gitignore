@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.egg-info/
+dist/
+docs/build/
+.pytest_cache/
+.ruff_cache/
+.coverage
+demo/latest_trg_performance.pdf

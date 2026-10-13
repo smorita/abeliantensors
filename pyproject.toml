@@ -1,0 +1,32 @@
+[project]
+name = "abeliantensors"
+version = "0.2.0"
+description = "Library for Abelian symmetry preserving tensors."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Markus Hauru", email = "markus@mhauru.org" }]
+keywords = ["tensor", "tensor networks", "linear algebra"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = ["numpy>=2.0", "scipy>=1.13"]
+
+[project.urls]
+Homepage = "https://github.com/smorita/abeliantensors"
+Upstream = "https://github.com/mhauru/abeliantensors"
+
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = ["pytest", "pytest-randomly", "pytest-cov", "ncon>=2", "ruff"]
+docs = ["sphinx", "sphinx-rtd-theme", "myst-parser"]
+demo = ["ncon>=2", "matplotlib", "seaborn"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
