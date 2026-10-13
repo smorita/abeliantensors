@@ -77,6 +77,8 @@ class ProductGroup(AbelianGroup):     # 直積。量子数は成分ごとの int
 - `qodulus` と `symmetry` が両方渡されたら `TypeError`。
 - インスタンスの `.qodulus` は、`DeprecationWarning` を出す読み取り専用のプロパティにする。`CyclicGroup` なら N、`U1Group` なら None を返し、`ProductGroup` では `AttributeError`。
 - サブクラスのクラス属性 `qodulus` は削除し、`symmetry` に置き換える。そのため `TensorZ2.qodulus` のように、クラスから直接 `qodulus` を読む書き方は動かなくなる(リポジトリ内に使っている箇所はない)。
+- クラス属性 `qodulus = N`(または `None`)を持つ旧方式のサブクラスは、`AbelianTensor.__init_subclass__` で `symmetry = CyclicGroup(N)`(または `U1Group()`)に変換し、クラスを定義した時点で `DeprecationWarning` を出す。README が「1 行で新しい巡回群のクラスを作れる」と案内してきた書き方なので、これがエラーにならずに U(1) として動いてしまうことを防ぐ。
+- `from_ndarray` は、`qhape` を正規化してから並べ替える。今のコードは正規化する前の値の順に並べ替えるため、Z_N に正規化されていない `qhape`(例: Z₃ の `[-1, 0, 1]`)を渡すと、`to_ndarray` で元の配列に戻らない。
 
 **量子数の演算の置き換え**(`g = self.symmetry`)
 

@@ -1,72 +1,61 @@
 from collections.abc import Iterable
 
-import numpy as np
-
 from .abeliantensor import AbelianTensor
+from .symmetry import CyclicGroup, U1Group
 
 
-class TensorZN(AbelianTensor):
-    """A symmetric tensor class for the cyclic group of order N.
+class FiniteAbelianTensor(AbelianTensor):
+    """Base class for tensors with a fixed, finite abelian symmetry group.
 
-    See `AbelianTensor` for the details: A `TensorZN` is just an
-    `AbelianTensor` for which addition of charges is done modulo N.
+    Subclasses set the class attribute `symmetry` to an `AbelianGroup` with
+    finitely many elements. Then `qhape` (or `qim`) can be omitted: an index
+    with a single sector gets the identity as its quantum number, and an index
+    with one sector per group element gets all the elements in the order of
+    ``symmetry.elements()``. See `AbelianTensor` for the details.
     """
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Initializers and factory methods
 
-    # We implement some of the initialization methods so that if the quantum
-    # numbers aren't given in qhape, they are automatically generated.
-
-    def __init__(self, shape, *args, qhape=None, qodulus=None, **kwargs):
+    def __init__(self, shape, *args, qhape=None, **kwargs):
         if qhape is None:
             qhape = type(self)._shape_to_qhape(shape)
-        qodulus = type(self).qodulus
-        return super().__init__(
-            shape, *args, qhape=qhape, qodulus=qodulus, **kwargs
-        )
+        super().__init__(shape, *args, qhape=qhape, **kwargs)
 
     @classmethod
-    def eye(cls, dim, qim=None, qodulus=None, dtype=np.float64):
+    def eye(cls, dim, qim=None, *args, **kwargs):
         """Return the identity matrix of the given dimension `dim`."""
         if qim is None:
             qim = cls._dim_to_qim(dim)
-        qodulus = cls.qodulus
-        return super().eye(dim, qim=qim, qodulus=qodulus, dtype=np.float64)
+        return super().eye(dim, qim, *args, **kwargs)
 
     @classmethod
-    def initialize_with(
-        cls, numpy_func, shape, *args, qhape=None, qodulus=None, **kwargs
-    ):
+    def initialize_with(cls, numpy_func, shape, *args, qhape=None, **kwargs):
         """Return a tensor of the given `shape`, initialized with
         `numpy_func`.
         """
         if qhape is None:
             qhape = cls._shape_to_qhape(shape)
-        qodulus = cls.qodulus
         return super().initialize_with(
-            numpy_func, shape, *args, qhape=qhape, qodulus=qodulus, **kwargs
+            numpy_func, shape, *args, qhape=qhape, **kwargs
         )
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # To and from normal numpy arrays
 
     @classmethod
-    def from_ndarray(
-        cls, a, *args, shape=None, qhape=None, qodulus=None, **kwargs
-    ):
-        """Build a `TensorZN` out of a given NumPy array, using the provided
-        form data.
+    def from_ndarray(cls, a, *args, shape=None, qhape=None, **kwargs):
+        """Build a tensor out of a given NumPy array, using the provided form
+        data.
 
-        If `qhape` is not provided, it is automatically generated based on
-        `shape` to be ``[0, ..., N]`` for each index. See
-        `AbelianTensor.from_ndarray` for more documentation.
+        If `qhape` is not provided, it is generated from `shape` as described
+        in the class documentation. See `AbelianTensor.from_ndarray` for more
+        documentation.
         """
         if qhape is None:
             qhape = cls._shape_to_qhape(shape)
-        qodulus = cls.qodulus
         return super().from_ndarray(
-            a, *args, shape=shape, qhape=qhape, qodulus=qodulus, **kwargs
+            a, *args, shape=shape, qhape=qhape, **kwargs
         )
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -74,10 +63,19 @@ class TensorZN(AbelianTensor):
 
     @classmethod
     def _dim_to_qim(cls, dim):
-        """Given the dimensions of sectors along an index, generate the the
+        """Given the dimensions of sectors along an index, generate the
         corresponding default quantum numbers.
         """
-        return [0] if len(dim) == 1 else list(range(cls.qodulus))
+        if len(dim) == 1:
+            return [cls.symmetry.identity]
+        elements = cls.symmetry.elements()
+        if len(dim) == len(elements):
+            return list(elements)
+        raise ValueError(
+            f"Cannot generate a default qhape for an index with {len(dim)} "
+            f"sectors under {cls.symmetry!r}: give qhape explicitly, or use "
+            f"1 or {len(elements)} sectors."
+        )
 
     @classmethod
     def _shape_to_qhape(cls, shape):
@@ -92,11 +90,10 @@ class TensorZN(AbelianTensor):
     def split_indices(self, indices, dims, qims=None, dirs=None):
         """Split indices in the spirit of reshape.
 
-        If `qhape` is not provided, it is automatically generated based on
-        `shape` to be ``[0, ..., N]`` for each index. See `AbelianTensor.split`
-        for more documentation.
+        If `qims` is not provided, it is generated from `dims` as described in
+        the class documentation. See `AbelianTensor.split_indices` for more
+        documentation.
         """
-        # Buildind qims.
         if qims is None:
             if isinstance(indices, Iterable):
                 qims = [type(self)._shape_to_qhape(dim) for dim in dims]
@@ -105,13 +102,21 @@ class TensorZN(AbelianTensor):
         return super().split_indices(indices, dims, qims=qims, dirs=dirs)
 
 
+class TensorZN(FiniteAbelianTensor):
+    """A symmetric tensor class for the cyclic group of order N.
+
+    Subclasses set ``symmetry = CyclicGroup(N)``. See `FiniteAbelianTensor`
+    and `AbelianTensor` for the details.
+    """
+
+
 class TensorZ2(TensorZN):
     """A class for Z2 symmetric tensors.
 
     See the parent class `AbelianTensor` for details.
     """
 
-    qodulus = 2
+    symmetry = CyclicGroup(2)
 
 
 class TensorZ3(TensorZN):
@@ -120,7 +125,7 @@ class TensorZ3(TensorZN):
     See the parent class `AbelianTensor` for details.
     """
 
-    qodulus = 3
+    symmetry = CyclicGroup(3)
 
 
 class TensorU1(AbelianTensor):
@@ -129,4 +134,4 @@ class TensorU1(AbelianTensor):
     See the parent class `AbelianTensor` for details.
     """
 
-    qodulus = None
+    symmetry = U1Group()

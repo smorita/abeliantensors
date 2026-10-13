@@ -9,6 +9,7 @@ from copy import deepcopy
 import numpy as np
 import scipy.sparse.linalg as spsla
 
+from .symmetry import CyclicGroup, U1Group
 from .tensorcommon import TensorCommon
 
 # Some utility functions for generating methods of AbelianTensor efficiently.
@@ -53,13 +54,48 @@ def _arg_swapper(op):
     return op_swapped
 
 
+# Sentinel for detecting whether the deprecated `qodulus` argument was given.
+_UNSET = object()
+
+
+def _resolve_symmetry(cls, symmetry, qodulus):
+    """Return the `AbelianGroup` that a new tensor of class `cls` should have.
+
+    `qodulus` is the deprecated way of giving the symmetry: an integer N means
+    ``CyclicGroup(N)`` and None means ``U1Group()``. If neither argument is
+    given, the class's own `symmetry` is used, or U(1) if the class does not
+    fix one. A class that fixes its symmetry does not accept a different one.
+    """
+    if qodulus is not _UNSET:
+        if symmetry is not None:
+            raise TypeError("Give either `symmetry` or `qodulus`, not both.")
+        warnings.warn(
+            "The `qodulus` argument is deprecated. Use "
+            "`symmetry=CyclicGroup(n)` or `symmetry=U1Group()` instead.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        symmetry = U1Group() if qodulus is None else CyclicGroup(qodulus)
+    fixed = cls.symmetry
+    if symmetry is None:
+        return fixed if fixed is not None else U1Group()
+    if fixed is not None and symmetry != fixed:
+        raise ValueError(
+            f"{cls.__name__} has symmetry {fixed!r}, cannot create it with "
+            f"symmetry {symmetry!r}."
+        )
+    return symmetry
+
+
 class AbelianTensor(TensorCommon):
     """A class for symmetry preserving tensors capabable of handling abelian
     symmetry groups.
 
-    This class is meant to be subclassed to implement specific symmetries,
-    which can typically be done by simply fixing the `qodulus` of the class
-    (see below).
+    The symmetry group is given by an `AbelianGroup` (see
+    `abeliantensors.symmetry`), either per instance with the `symmetry`
+    argument or fixed by a subclass with the class attribute `symmetry`.
+    Quantum numbers are integers for `CyclicGroup` and `U1Group`, and tuples
+    of integers for `ProductGroup`.
 
     Every `AbelianTensor` has the following attributes:
 
@@ -76,9 +112,8 @@ class AbelianTensor(TensorCommon):
     `dirs`: A list of integers -1 or 1, one for each index. 1 means that the
     corresponding index is outgoing, -1 means incoming.
 
-    `qodulus`: An integer or None. If an integer, then all arithmetic on the
-    quantum numbers is done modulo `qodulus`. If None then arithmetic on
-    `qnums` is just usual integer arithmetic.
+    `symmetry`: An `AbelianGroup` that defines how quantum numbers combine.
+    Defaults to `U1Group()`, i.e. usual integer arithmetic.
 
     `sects`: A dict of numpy arrays, with combinations of quantum numbers as
     keys. Every key must a tuple of quantum numbers, one for each index, and
@@ -98,12 +133,12 @@ class AbelianTensor(TensorCommon):
     main use of ``defval != 0`` is to be able to handle tensors of boolean
     values that arise in comparisons.
 
-    `charge`: An integer such that if `invar` is True then all the blocks set
-    in `sects` must have keys `k` such that ``sum_i k[i]*dirs[i] % qodulus ==
-    charge``.
+    `charge`: A quantum number such that if `invar` is True then all the
+    blocks set in `sects` must have keys `k` such that
+    ``symmetry.sum(symmetry.signed(k[i], dirs[i]) for i) == charge``.
 
     `invar`: A boolean. If True, then the tensor is invariant under the
-    symmetry determined by `qodulus`, in the sense described in the definition
+    symmetry determined by `symmetry`, in the sense described in the definition
     of `charge`.  If False, this condition is ignored and any block can be set.
     Note that as with `defval`, many methods require the tensor to be invariant
     and ``invar == False`` is mainly used for handling vectors of singular
@@ -116,6 +151,43 @@ class AbelianTensor(TensorCommon):
     conforms to this definition.
     """
 
+    # The symmetry group fixed by the class, or None if it is given per
+    # instance. Subclasses such as TensorZ2 set this.
+    symmetry = None
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        # Support subclasses written for the old API, which fixed the symmetry
+        # with a class attribute `qodulus = N` (or None for U(1)).
+        if "qodulus" in vars(cls) and "symmetry" not in vars(cls):
+            qodulus = vars(cls)["qodulus"]
+            warnings.warn(
+                f"Setting the class attribute `qodulus` on {cls.__name__} is "
+                "deprecated. Set `symmetry = CyclicGroup(n)` or "
+                "`symmetry = U1Group()` instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            cls.symmetry = (
+                U1Group() if qodulus is None else CyclicGroup(qodulus)
+            )
+
+    @property
+    def qodulus(self):
+        """Deprecated. The order N of a `CyclicGroup` symmetry, or None for
+        `U1Group`.
+        """
+        warnings.warn(
+            "`qodulus` is deprecated. Use `symmetry` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        if isinstance(self.symmetry, CyclicGroup):
+            return self.symmetry.n
+        if isinstance(self.symmetry, U1Group):
+            return None
+        raise AttributeError(f"qodulus is not defined for {self.symmetry!r}.")
+
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Methods for creating AbelianTensors.
 
@@ -123,13 +195,14 @@ class AbelianTensor(TensorCommon):
         self,
         shape,
         qhape=None,
-        qodulus=None,
+        qodulus=_UNSET,
         sects=None,
         dirs=None,
         dtype=np.float64,
         defval=0,
-        charge=0,
+        charge=None,
         invar=True,
+        symmetry=None,
     ):
         """Initialize an AbelianTensor.
 
@@ -145,14 +218,15 @@ class AbelianTensor(TensorCommon):
                 "generated to be [[1,...,1], ..., [1,...,1]].",
                 stacklevel=2,
             )
+        symmetry = _resolve_symmetry(type(self), symmetry, qodulus)
+        if charge is None:
+            charge = symmetry.identity
+        charge = symmetry.normalize(charge)
         shape = list(map(list, shape))
-        qhape = list(map(list, qhape))
-        if qodulus is not None:
-            charge %= qodulus
-            qhape = [[q % qodulus for q in qim] for qim in qhape]
+        qhape = [[symmetry.normalize(q) for q in qim] for qim in qhape]
         assert type(self).check_qhape_shape_match(qhape, shape)
         assert len(shape) == len(dirs)
-        if invar and charge != 0:
+        if invar and charge != symmetry.identity:
             assert defval == 0
         if sects is None:
             sects = {}
@@ -164,7 +238,7 @@ class AbelianTensor(TensorCommon):
         self.dirs = dirs
         self.dtype = dtype
         self.qhape = qhape
-        self.qodulus = qodulus
+        self.symmetry = symmetry
         self.sects = sects
 
     # Shallow copies of tensors are a bit dangerous, since the user may not
@@ -216,7 +290,7 @@ class AbelianTensor(TensorCommon):
             res = type(self)(
                 shape,
                 qhape=qhape,
-                qodulus=self.qodulus,
+                symmetry=self.symmetry,
                 sects=sects,
                 dirs=dirs,
                 dtype=self.dtype,
@@ -247,7 +321,7 @@ class AbelianTensor(TensorCommon):
             res = type(self)(
                 shape,
                 qhape=qhape,
-                qodulus=self.qodulus,
+                symmetry=self.symmetry,
                 sects=sects,
                 dtype=self.dtype,
                 dirs=dirs,
@@ -256,7 +330,9 @@ class AbelianTensor(TensorCommon):
             return res
 
     @classmethod
-    def eye(cls, dim, qim=None, qodulus=None, dtype=np.float64):
+    def eye(
+        cls, dim, qim=None, qodulus=_UNSET, dtype=np.float64, symmetry=None
+    ):
         """Return an identity tensor of ``shape = [dim, dim]``, ``qhape = [qim,
         qim]`` and ``dirs = [1, -1]``.
         """
@@ -269,10 +345,11 @@ class AbelianTensor(TensorCommon):
         shape = [dim, dim]
         qhape = [qim, qim]
         dirs = [1, -1]
+        symmetry = _resolve_symmetry(cls, symmetry, qodulus)
         res = cls(
             shape,
             qhape=qhape,
-            qodulus=qodulus,
+            symmetry=symmetry,
             sects=sects,
             dirs=dirs,
             dtype=dtype,
@@ -286,10 +363,11 @@ class AbelianTensor(TensorCommon):
         shape,
         *args,
         qhape=None,
-        qodulus=None,
+        qodulus=_UNSET,
         dirs=None,
         invar=True,
-        charge=0,
+        charge=None,
+        symmetry=None,
         **kwargs,
     ):
         """Create a tensor initialized with a given numpy function.
@@ -299,11 +377,12 @@ class AbelianTensor(TensorCommon):
         valid blocks of the new tensor to ``numpy_func(block_shape, *args,
         **kwargs)``.
         """
+        symmetry = _resolve_symmetry(cls, symmetry, qodulus)
+        if charge is None:
+            charge = symmetry.identity
+        charge = symmetry.normalize(charge)
         shape = list(map(list, shape))
-        qhape = list(map(list, qhape))
-        if qodulus is not None:
-            charge %= qodulus
-            qhape = [[q % qodulus for q in qim] for qim in qhape]
+        qhape = [[symmetry.normalize(q) for q in qim] for qim in qhape]
         assert cls.check_qhape_shape_match(qhape, shape)
         assert len(dirs) == len(shape)
 
@@ -311,7 +390,7 @@ class AbelianTensor(TensorCommon):
         # setting default values separately in two places.
         opt_args = {
             "qhape": qhape,
-            "qodulus": qodulus,
+            "symmetry": symmetry,
             "charge": charge,
             "invar": invar,
             "dirs": dirs,
@@ -333,7 +412,7 @@ class AbelianTensor(TensorCommon):
                     # symmetry), so generate it.
                     res[tuple(qcomb)] = numpy_func(dcomb, *args, **kwargs)
         else:
-            if res.charge == 0:
+            if res.charge == symmetry.identity:
                 res.defval = numpy_func((), *args, **kwargs)
         return res
 
@@ -344,7 +423,7 @@ class AbelianTensor(TensorCommon):
         res = type(self)(
             self.shape.copy(),
             qhape=self.qhape.copy(),
-            qodulus=self.qodulus,
+            symmetry=self.symmetry,
             dtype=self.dtype,
             defval=self.defval,
             invar=self.invar,
@@ -411,13 +490,13 @@ class AbelianTensor(TensorCommon):
 
     def __repr__(self):
         r = (
-            "%r(%r, qhape=%r, qodulus=%r, sects=%r, dtype=% rdefval=%r, "
+            "%r(%r, qhape=%r, symmetry=%r, sects=%r, dtype=%r, defval=%r, "
             "invar=%r, charge=%r, dirs=%r"
             % (
                 type(self),
                 self.shape,
                 self.qhape,
-                self.qodulus,
+                self.symmetry,
                 self.sects,
                 self.dtype,
                 self.defval,
@@ -432,7 +511,7 @@ class AbelianTensor(TensorCommon):
         r = (
             f"{str(type(self))} object:\n"
             f"shape = {self.shape},\n"
-            f"qhape = {self.qhape}, qodulus = {self.qodulus}, "
+            f"qhape = {self.qhape}, symmetry = {self.symmetry}, "
             f"charge = {self.charge}\n"
             f"dirs = {self.dirs},\n"
             f"defval = {self.defval}, invar = {self.invar}, "
@@ -489,9 +568,7 @@ class AbelianTensor(TensorCommon):
         """
         res = self._defer_unary_elementwise(np.conj)
         res.dirs = list(map(opr.neg, res.dirs))
-        res.charge = -res.charge
-        if self.qodulus is not None:
-            res.charge %= res.qodulus
+        res.charge = self.symmetry.neg(res.charge)
         return res
 
     def astype(self, dtype, casting="unsafe", copy=True):
@@ -568,20 +645,19 @@ class AbelianTensor(TensorCommon):
         res.dtype = res_dtype
         if isinstance(B, AbelianTensor):
             # self and B should be of the same form or one should be a scalar.
-            # They should also have the same qodulus.
+            # They should also have the same symmetry.
             assert (
                 type(self).check_form_match(tensor1=self, tensor2=B)
                 or self.isscalar()
                 or B.isscalar()
             )
-            assert self.qodulus == B.qodulus
+            assert self.symmetry == B.symmetry
             # They may have different charges and dirs, but this generates a
             # warning.
             if self.charge != B.charge and not self.isscalar():
                 warnings.warn(
                     "Binary operation called on non-scalar tensors "
-                    "with differing charges (%i and %i)."
-                    % (self.charge, B.charge),
+                    f"with differing charges ({self.charge} and {B.charge}).",
                     stacklevel=3,
                 )
             relative_dirs = tuple(map(opr.mul, self.dirs, B.dirs))
@@ -645,9 +721,9 @@ class AbelianTensor(TensorCommon):
 
         See `numpy.allclose` for explanations of the tolerance arguments.
         """
-        # self and B should be of the same form and have the same qodulus.
+        # self and B should be of the same form and have the same symmetry.
         assert type(self).check_form_match(tensor1=self, tensor2=B)
-        assert self.qodulus == B.qodulus
+        assert self.symmetry == B.symmetry
         # They may have different dirs, but this generates a warning.
         relative_dirs = tuple(map(opr.mul, self.dirs, B.dirs))
         for i, d in enumerate(relative_dirs):
@@ -808,9 +884,10 @@ class AbelianTensor(TensorCommon):
         shape=None,
         qhape=None,
         dirs=None,
-        qodulus=None,
+        qodulus=_UNSET,
         invar=True,
-        charge=0,
+        charge=None,
+        symmetry=None,
     ):
         """Build an `AbelianTensor` out of a given NumPy array, using the
         provided form data.
@@ -832,11 +909,15 @@ class AbelianTensor(TensorCommon):
         # be invariant, since their defval != 0.0.
         is_bool = a.dtype == np.bool_
         invar = invar and not is_bool
+        symmetry = _resolve_symmetry(cls, symmetry, qodulus)
+        # Normalize before sorting, so that the blocks are read in the order
+        # of the canonical quantum numbers, as to_ndarray writes them.
+        qhape = [[symmetry.normalize(q) for q in qim] for qim in qhape]
         shape, qhape = cls._sorted_shape_qhape(shape=shape, qhape=qhape)
         res = cls(
             shape,
             qhape=qhape,
-            qodulus=qodulus,
+            symmetry=symmetry,
             dtype=a.dtype,
             invar=invar,
             charge=charge,
@@ -876,15 +957,6 @@ class AbelianTensor(TensorCommon):
         """Return True is this tensor is scalar, False otherwise."""
         return not bool(self.shape)
 
-    def _qod_func(self, q):
-        """Take a quantum number `q` and put it in the right range of values by
-        taking the modulus with `self.qodulus`, if necessary.
-        """
-        if self.qodulus is None:
-            return q
-        else:
-            return q % self.qodulus
-
     def is_valid_key(self, key):
         """Return True if `key` is a valid block allowed by symmetry or
         `self.invar` is False. Otherwise False.
@@ -893,11 +965,8 @@ class AbelianTensor(TensorCommon):
             return True
         if len(key) != len(self.qhape):
             return False
-        key = map(opr.mul, self.dirs, key)
-        s = sum(key)
-        if self.qodulus is not None:
-            s %= self.qodulus
-        return s == self.charge
+        g = self.symmetry
+        return g.sum(map(g.signed, key, self.dirs)) == self.charge
 
     def compatible_indices(self, other, i, j):
         """Return True if index `i` of `self` may be contracted with index `j`
@@ -913,9 +982,8 @@ class AbelianTensor(TensorCommon):
         # The -1 * s_d * o_d is -1 if the indices have the same direction, +1
         # if different. We multiply by it, because after this multiplication
         # o_qim and s_qim should match for the indices to be compatible.
-        o_qim = [-1 * s_d * o_d * q for q in other.qhape[j]]
-        if other.qodulus is not None:
-            o_qim = [q % other.qodulus for q in o_qim]
+        g = other.symmetry
+        o_qim = [g.signed(q, -1 * s_d * o_d) for q in other.qhape[j]]
         # Check that the set of (q, d) pairs, where q is a quantum number and d
         # is dimension of the corresponding block, are the same for the two
         # indices.
@@ -934,13 +1002,13 @@ class AbelianTensor(TensorCommon):
         res = self.empty_like()
         # Negate directions and quantum numbers in form data.
         res.dirs[axis] *= -1
-        res.qhape[axis] = [self._qod_func(-q) for q in res.qhape[axis]]
+        res.qhape[axis] = [self.symmetry.neg(q) for q in res.qhape[axis]]
         # Flip the quantum numbers of the keys of self.sects.
         keys = set(self.sects.keys())
         while keys:
             k = keys.pop()
             kf = list(k)
-            kf[axis] = self._qod_func(-kf[axis])
+            kf[axis] = self.symmetry.neg(kf[axis])
             kf = tuple(kf)
             # Swap self[kf] and self[k], at least if both exist.
             vf = self[k]
@@ -955,20 +1023,22 @@ class AbelianTensor(TensorCommon):
         """Return a view of `self` that has an additional index at the position
         `axis`.
 
-        This new index has only one `qnum`, 0, and dimension 1. The direction
-        of the new index is a keyword argument `direction` that defaults to 1.
+        This new index has only one `qnum`, the identity of the symmetry group,
+        and dimension 1. The direction of the new index is a keyword argument
+        `direction` that defaults to 1.
         """
+        identity = self.symmetry.identity
         res = self.empty_like()
         res.shape.insert(axis, [1])
-        res.qhape.insert(axis, [0])
+        res.qhape.insert(axis, [identity])
         res.dirs.insert(axis, direction)
         if not self.isscalar():
             for k, v in self.sects.items():
                 new_k = list(k)
-                new_k.insert(axis, 0)
+                new_k.insert(axis, identity)
                 res[tuple(new_k)] = np.expand_dims(v, axis)
-        elif res.charge == 0:
-            res[(0,)] = np.array((res.defval,), dtype=res.dtype)
+        elif res.charge == identity:
+            res[(identity,)] = np.array((res.defval,), dtype=res.dtype)
             res.defval = 0
         return res
 
@@ -1034,7 +1104,10 @@ class AbelianTensor(TensorCommon):
             )
         )
         assert all(d == 1 or d == -1 for d in self.dirs)
-        assert all(q == self._qod_func(q) for q in sum(self.qhape, []))
+        assert all(
+            q == self.symmetry.normalize(q) for q in sum(self.qhape, [])
+        )
+        assert self.charge == self.symmetry.normalize(self.charge)
         # Check that every sect has a valid key and the correct shape and
         # dtype.
         for k, v in self.sects.items():
@@ -1048,7 +1121,9 @@ class AbelianTensor(TensorCommon):
                 [self.shape[i][j] for i, j in enumerate(qnum_inds)]
             )
             assert block_shp_claimed == block_shp_real
-        if self.invar and (self.charge != 0 or not self.isscalar()):
+        if self.invar and (
+            self.charge != self.symmetry.identity or not self.isscalar()
+        ):
             assert self.defval == 0
         return True
 
@@ -1079,7 +1154,7 @@ class AbelianTensor(TensorCommon):
         qhape2=None,
         shape2=None,
         dirs2=None,
-        qodulus=None,
+        symmetry=None,
     ):
         """Check that the form data of two tensors match.
 
@@ -1087,12 +1162,17 @@ class AbelianTensor(TensorCommon):
         if their indices are all flipped to point in the same direction then
         both tensors have the same `qnums` for the same indices and with the
         same dimensions. Instead of giving two tensors, sets of `qhapes`,
-        `shapes`, and `dirs` and a `qodulus` can also be given.
+        `shapes`, and `dirs` and a `symmetry` can also be given (by default
+        the one of `tensor1`).
         """
         if tensor1 is not None:
             qhape1 = tensor1.qhape
             shape1 = tensor1.shape
             dirs1 = tensor1.dirs
+            if symmetry is None:
+                symmetry = tensor1.symmetry
+        if symmetry is None:
+            symmetry = U1Group()
         if tensor2 is not None:
             qhape2 = tensor2.qhape
             shape2 = tensor2.shape
@@ -1112,9 +1192,7 @@ class AbelianTensor(TensorCommon):
         ):
             # This is almost like compatible_indices, but for the missing minus
             # sign when building o_qim.
-            qim2 = [d1 * d2 * q for q in qim2]
-            if qodulus is not None:
-                qim2 = [q % qodulus for q in qim2]
+            qim2 = [symmetry.signed(q, d1 * d2) for q in qim2]
             qimdim1 = set(zip(qim1, dim1))
             qimdim2 = set(zip(qim2, dim2))
             if not qimdim1 == qimdim2:
@@ -1342,6 +1420,7 @@ class AbelianTensor(TensorCommon):
         del_slcs = [slice(b[1], b[-1] + 1) for b in index_batches]
         get_slcs = [slice(b[0], b[-1] + 1) for b in index_batches]
         dir_batches = [[res.dirs[i] for i in batch] for batch in index_batches]
+        g = self.symmetry
         for k in valid_ks:
             v = res[k]
             new_k = list(k)
@@ -1352,8 +1431,9 @@ class AbelianTensor(TensorCommon):
             ):
                 k_part = k[get_slc]
                 k_parts.append(k_part)
-                k_part = map(opr.mul, k_part, dir_b)
-                new_qnum = self._qod_func(sum(k_part) * dir_new)
+                new_qnum = g.signed(
+                    g.sum(map(g.signed, k_part, dir_b)), dir_new
+                )
                 new_k[b[0]] = new_qnum
                 del new_k[del_slc]
                 new_shp[b[0]] = fct.reduce(opr.mul, v.shape[get_slc])
@@ -1390,11 +1470,14 @@ class AbelianTensor(TensorCommon):
             )
             new_dim = list(map(product_of_tuple, cart_prod_of_dims))
 
-            qhps = ([q * res.dirs[i] for q in res.qhape[i]] for i in batch)
+            qhps = (
+                [g.signed(q, res.dirs[i]) for q in res.qhape[i]] for i in batch
+            )
             cartesian_product_of_qims = itt.product(*tuple(qhps))
-            new_qim = map(sum, cartesian_product_of_qims)
-            new_qim = (q * new_d for q in new_qim)
-            new_qim = list(map(self._qod_func, new_qim))
+            new_qim = [
+                g.signed(g.sum(qcomb), new_d)
+                for qcomb in cartesian_product_of_qims
+            ]
 
             # Still need to concatenate.
             # Sort by new_qim.
@@ -1482,6 +1565,10 @@ class AbelianTensor(TensorCommon):
                 dir_batches = [[1] * len(dims)]
             else:
                 dir_batches = [dirs]
+        qim_batches = [
+            [[self.symmetry.normalize(q) for q in qim] for qim in qim_batch]
+            for qim_batch in qim_batches
+        ]
 
         if not indices:
             return self.view()
@@ -1509,6 +1596,7 @@ class AbelianTensor(TensorCommon):
         # self, the slice along ind to that gets the block in question in
         # dcum[0]:dcum[1].
         split_data = {}
+        g = self.symmetry
         for ind, dims, qims, dir_batch in zip(
             indices, dim_batches, qim_batches, dir_batches
         ):
@@ -1516,10 +1604,9 @@ class AbelianTensor(TensorCommon):
             dimcombs = itt.product(*dims)
             qimcombs = itt.product(*qims)
             for qcomb, dcomb in zip(qimcombs, dimcombs):
-                qcomb_flipped = tuple(map(opr.mul, qcomb, dir_batch))
-                qnum = self._qod_func(sum(qcomb_flipped) * self.dirs[ind])
-                if self.qodulus is not None:
-                    qnum %= self.qodulus
+                qnum = g.signed(
+                    g.sum(map(g.signed, qcomb, dir_batch)), self.dirs[ind]
+                )
                 if qnum in self.qhape[ind]:
                     try:
                         split_data[ind, qnum].add((qcomb, dcomb))
@@ -1627,7 +1714,8 @@ class AbelianTensor(TensorCommon):
 
         Note that the diagonal consists always of blocks with the same `qnum`
         on `axis1` and `axis2` (once `dirs` are opposite). This means that the
-        trace of an invariant ``charge != 0`` tensor is always a zero-tensor.
+        trace of an invariant ``charge != identity`` tensor is always a
+        zero-tensor.
         """
         assert self.compatible_indices(self, axis1, axis2)
         if axis1 < axis2:
@@ -1652,10 +1740,9 @@ class AbelianTensor(TensorCommon):
         # infering what the qnum on axis2 should be. I suspect that this would
         # be slower, but I haven't tried.
         for k, v in self.sects.items():
-            qnum = k[axis1] - k[axis2]
-            if self.qodulus is not None:
-                qnum %= self.qodulus
-            if qnum == 0:
+            # dirs of axis1 and axis2 are opposite here, so the block lies on
+            # the diagonal iff the two quantum numbers are equal.
+            if k[axis1] == k[axis2]:
                 new_k = tuple(
                     i for j, i in enumerate(k) if j != axis1 and j != axis2
                 )
@@ -1683,8 +1770,8 @@ class AbelianTensor(TensorCommon):
         if `direction` is "left" or "l". This operation is just done without
         constructing the full diagonal matrix.
         """
-        assert diag_vect.qodulus == self.qodulus
-        assert diag_vect.charge == 0
+        assert diag_vect.symmetry == self.symmetry
+        assert diag_vect.charge == self.symmetry.identity
         assert len(diag_vect.shape) == 1
         assert direction in {"r", "l", "left", "right"}
 
@@ -1710,10 +1797,11 @@ class AbelianTensor(TensorCommon):
             v = np.swapaxes(v, -1, axis)
             res[k] = v
 
+        g = self.symmetry
         res.qhape[axis] = [
-            self._qod_func(q + diag_vect.charge) for q in diag_vect.qhape[0]
+            g.add(q, diag_vect.charge) for q in diag_vect.qhape[0]
         ]
-        res.charge = self._qod_func(self.charge + diag_vect.charge)
+        res.charge = g.add(self.charge, diag_vect.charge)
         return res
 
     def matrix_dot(self, other):
@@ -1722,7 +1810,8 @@ class AbelianTensor(TensorCommon):
         If either one is a matrix, it must be invariant and have ``defval ==
         0``.
         """
-        assert self.qodulus == other.qodulus
+        assert self.symmetry == other.symmetry
+        g = self.symmetry
 
         # The following essentially is a massive case statement on whether self
         # and other are scalars, vectors or matrices. Unwieldly, but efficient
@@ -1731,7 +1820,7 @@ class AbelianTensor(TensorCommon):
             return self * other
         else:
             res_dtype = np.result_type(self.dtype, other.dtype)
-            res_charge = self._qod_func(self.charge + other.charge)
+            res_charge = g.add(self.charge, other.charge)
             res_invar = self.invar and other.invar
 
             # Vector times vector
@@ -1759,7 +1848,7 @@ class AbelianTensor(TensorCommon):
                 res = type(self)(
                     [],
                     qhape=[],
-                    qodulus=self.qodulus,
+                    symmetry=self.symmetry,
                     sects={},
                     defval=res,
                     dirs=[],
@@ -1786,8 +1875,9 @@ class AbelianTensor(TensorCommon):
                     res_dirs = [other.dirs[1]]
                     flux = -other.dirs[0] * other.dirs[1]
                     for sum_qnum in self.qhape[0]:
-                        b_qnum = self._qod_func(
-                            sum_qnum * flux + other.dirs[1] * other.charge
+                        b_qnum = g.add(
+                            g.signed(sum_qnum, flux),
+                            g.signed(other.charge, other.dirs[1]),
                         )
                         try:
                             a = self[(sum_qnum,)]
@@ -1814,8 +1904,9 @@ class AbelianTensor(TensorCommon):
                     res_dirs = [self.dirs[0]]
                     flux = -self.dirs[0] * self.dirs[1]
                     for sum_qnum in self.qhape[1]:
-                        a_qnum = self._qod_func(
-                            sum_qnum * flux + self.dirs[0] * self.charge
+                        a_qnum = g.add(
+                            g.signed(sum_qnum, flux),
+                            g.signed(self.charge, self.dirs[0]),
                         )
                         try:
                             a = self[(a_qnum, sum_qnum)]
@@ -1843,11 +1934,13 @@ class AbelianTensor(TensorCommon):
                     a_flux = -self.dirs[0] * self.dirs[1]
                     b_flux = -other.dirs[0] * other.dirs[1]
                     for sum_qnum in self.qhape[1]:
-                        a_qnum = self._qod_func(
-                            sum_qnum * a_flux + self.dirs[0] * self.charge
+                        a_qnum = g.add(
+                            g.signed(sum_qnum, a_flux),
+                            g.signed(self.charge, self.dirs[0]),
                         )
-                        b_qnum = self._qod_func(
-                            sum_qnum * b_flux + other.dirs[1] * other.charge
+                        b_qnum = g.add(
+                            g.signed(sum_qnum, b_flux),
+                            g.signed(other.charge, other.dirs[1]),
                         )
                         try:
                             a = self[a_qnum, sum_qnum]
@@ -1861,7 +1954,7 @@ class AbelianTensor(TensorCommon):
                 res = type(self)(
                     res_shape,
                     qhape=res_qhape,
-                    qodulus=self.qodulus,
+                    symmetry=self.symmetry,
                     sects=res_sects,
                     dtype=res_dtype,
                     dirs=res_dirs,
@@ -1914,7 +2007,7 @@ class AbelianTensor(TensorCommon):
         maxchi = max(chis)
         assert self.defval == 0
         assert self.invar
-        assert self.charge == 0
+        assert self.charge == self.symmetry.identity
         assert self.dirs[0] + self.dirs[1] == 0
         assert set(zip(self.qhape[0], self.shape[0])) == set(
             zip(self.qhape[1], self.shape[1])
@@ -2011,18 +2104,18 @@ class AbelianTensor(TensorCommon):
             [new_dim],
             qhape=[new_qim],
             dirs=[d],
-            qodulus=self.qodulus,
+            symmetry=self.symmetry,
             dtype=S_dtype,
             invar=False,
-            charge=0,
+            charge=self.symmetry.identity,
         )
         U = type(self)(
             [self.shape[0], new_dim],
             qhape=[self.qhape[0], new_qim],
             dirs=[d, -d],
-            qodulus=self.qodulus,
+            symmetry=self.symmetry,
             dtype=U_dtype,
-            charge=0,
+            charge=self.symmetry.identity,
         )
 
         # Set the blocks of U, S and V.
@@ -2171,24 +2264,24 @@ class AbelianTensor(TensorCommon):
             [self.shape[0], new_dim],
             qhape=[self.qhape[0], new_qim],
             dirs=[d, -d],
-            qodulus=self.qodulus,
+            symmetry=self.symmetry,
             dtype=self.dtype,
-            charge=0,
+            charge=self.symmetry.identity,
         )
         S = type(self)(
             [new_dim],
             qhape=[new_qim],
             dirs=[d],
-            qodulus=self.qodulus,
+            symmetry=self.symmetry,
             dtype=np.float64,
             invar=False,
-            charge=0,
+            charge=self.symmetry.identity,
         )
         V = type(self)(
             [new_dim, self.shape[1]],
             qhape=[new_qim, self.qhape[1]],
             dirs=[d, self.dirs[1]],
-            qodulus=self.qodulus,
+            symmetry=self.symmetry,
             dtype=self.dtype,
             charge=self.charge,
         )
