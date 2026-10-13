@@ -378,7 +378,8 @@ class Tensor(TensorCommon, np.ndarray):
         # Format the input so that indices is a list and dim_batches is a list
         # of lists.
         if isinstance(indices, Iterable):
-            assert len(indices) == len(dims)
+            if len(indices) != len(dims):
+                raise ValueError("indices and dims must have the same length.")
             indices = list(indices)
             dim_batches = list(map(list, dims))
         else:
@@ -427,9 +428,13 @@ class Tensor(TensorCommon, np.ndarray):
 
     def trace(self, axis1=0, axis2=1):
         """Return the trace over indices `axis1` and `axis2`."""
-        # We assert that the tensor is square with respect to axis1 and axis2,
-        # to follow as closely as possible what AbelianTensor does.
-        assert self.compatible_indices(self, axis1, axis2)
+        # Require the tensor to be square with respect to axis1 and axis2, to
+        # follow as closely as possible what AbelianTensor does.
+        if not self.compatible_indices(self, axis1, axis2):
+            raise ValueError(
+                f"Cannot trace over indices {axis1} and {axis2}: they are not "
+                "compatible."
+            )
         trace = super().trace(axis1=axis1, axis2=axis2)
         return type(self).from_ndarray(trace)
 

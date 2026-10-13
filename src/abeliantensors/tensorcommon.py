@@ -1,5 +1,3 @@
-import functools as fct
-import itertools as itt
 import warnings
 from collections.abc import Iterable
 
@@ -233,10 +231,17 @@ class TensorCommon:
         # Check that 1) the number of contracted indices for self and other
         # match and 2) that the indices are compatible, i.e. okay to contract
         # with each other. In addition raise a warning if the dirs don't match.
-        assert len(a) == len(b)
-        assert all(
-            itt.starmap(fct.partial(self.compatible_indices, other), zip(a, b))
-        )
+        if len(a) != len(b):
+            raise ValueError(
+                "dot needs the same number of indices from both tensors, got "
+                f"{a} and {b}."
+            )
+        for i, j in zip(a, b):
+            if not self.compatible_indices(other, i, j):
+                raise ValueError(
+                    f"Index {i} of self and index {j} of other are not "
+                    "compatible for contraction."
+                )
         if (
             self.dirs is not None
             and other.dirs is not None

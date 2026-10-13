@@ -315,7 +315,11 @@ class AbelianTensor(TensorCommon):
         warning is raised. The output is then a non-invariant vector with
         ``dirs = [d]``.
         """
-        assert len(self.shape) == 1 or len(self.shape) == 2
+        if len(self.shape) not in (1, 2):
+            raise ValueError(
+                "diag needs a tensor with 1 or 2 indices, got "
+                f"{len(self.shape)}."
+            )
         if len(self.shape) == 1:
             dim = self.shape[0]
             qim = self.qhape[0]
@@ -338,7 +342,11 @@ class AbelianTensor(TensorCommon):
             return res
         else:
             assert self.invar
-            assert self.compatible_indices(self, 0, 1)
+            if not self.compatible_indices(self, 0, 1):
+                raise ValueError(
+                    "diag needs a square matrix: indices 0 and 1 are not "
+                    "compatible."
+                )
             d = self.dirs[0]
             if self.dirs[1] + d != 0:
                 warnings.warn(
@@ -695,11 +703,15 @@ class AbelianTensor(TensorCommon):
             # self and B should have the same symmetry, and the same form or
             # one should be a scalar.
             _check_same_symmetry(self, B)
-            assert (
+            if not (
                 type(self).check_form_match(tensor1=self, tensor2=B)
                 or self.isscalar()
                 or B.isscalar()
-            )
+            ):
+                raise ValueError(
+                    "Element-wise operation needs tensors of the same form "
+                    f"(shape {self.shape} vs. {B.shape})."
+                )
             # They may have different charges and dirs, but this generates a
             # warning.
             if self.charge != B.charge and not self.isscalar():
@@ -773,7 +785,11 @@ class AbelianTensor(TensorCommon):
         """
         # self and B should have the same symmetry and be of the same form.
         _check_same_symmetry(self, B)
-        assert type(self).check_form_match(tensor1=self, tensor2=B)
+        if not type(self).check_form_match(tensor1=self, tensor2=B):
+            raise ValueError(
+                "allclose needs tensors of the same form "
+                f"(shape {self.shape} vs. {B.shape})."
+            )
         # They may have different dirs, but this generates a warning.
         relative_dirs = tuple(map(opr.mul, self.dirs, B.dirs))
         for i, d in enumerate(relative_dirs):
@@ -1419,7 +1435,11 @@ class AbelianTensor(TensorCommon):
         else:
             if not isinstance(dirs, Iterable):
                 dirs = [dirs]
-            assert len(dirs) == len(index_batches)
+            if len(dirs) != len(index_batches):
+                raise ValueError(
+                    f"Got {len(dirs)} dirs for {len(index_batches)} "
+                    "batches of indices to join."
+                )
 
         if not index_batches:
             # Nothing to be done. However, join_indices should always return an
@@ -1636,7 +1656,10 @@ class AbelianTensor(TensorCommon):
         # Formatting the input so that indices is a list and dim_batches and
         # dim_batches are lists of lists.
         if isinstance(indices, Iterable):
-            assert len(indices) == len(dims) == len(qims)
+            if not len(indices) == len(dims) == len(qims):
+                raise ValueError(
+                    "indices, dims and qims must have the same length."
+                )
             indices = list(indices)
             dim_batches = list(map(list, dims))
             qim_batches = list(map(list, qims))
@@ -1814,7 +1837,11 @@ class AbelianTensor(TensorCommon):
         trace of an invariant ``charge != identity`` tensor is always a
         zero-tensor.
         """
-        assert self.compatible_indices(self, axis1, axis2)
+        if not self.compatible_indices(self, axis1, axis2):
+            raise ValueError(
+                f"Cannot trace over indices {axis1} and {axis2}: they are "
+                "not compatible."
+            )
         if axis1 < axis2:
             axis1, axis2 = axis2, axis1
         if self.dirs[axis1] + self.dirs[axis2] != 0:
@@ -1868,9 +1895,21 @@ class AbelianTensor(TensorCommon):
         constructing the full diagonal matrix.
         """
         _check_same_symmetry(self, diag_vect)
-        assert diag_vect.charge == self.symmetry.identity
-        assert len(diag_vect.shape) == 1
-        assert direction in {"r", "l", "left", "right"}
+        if diag_vect.charge != self.symmetry.identity:
+            raise ValueError(
+                "multiply_diag needs a diag_vect with identity charge, got "
+                f"{diag_vect.charge!r}."
+            )
+        if len(diag_vect.shape) != 1:
+            raise ValueError(
+                "multiply_diag needs diag_vect to be a vector, got "
+                f"{len(diag_vect.shape)} indices."
+            )
+        if direction not in {"r", "l", "left", "right"}:
+            raise ValueError(
+                "direction must be 'r', 'right', 'l' or 'left', got "
+                f"{direction!r}."
+            )
 
         res = self.empty_like()
         if axis < 0:
@@ -1931,7 +1970,11 @@ class AbelianTensor(TensorCommon):
 
             # Vector times vector
             if len(self.shape) == 1 and len(other.shape) == 1:
-                assert self.compatible_indices(other, 0, 0)
+                if not self.compatible_indices(other, 0, 0):
+                    raise ValueError(
+                        "matrix_dot: index 0 of self and index 0 of other "
+                        "are not compatible."
+                    )
                 if self.dirs[0] + other.dirs[0] != 0:
                     warnings.warn(
                         "Automatically flipping dir 0 of other in dot.",
@@ -1969,7 +2012,11 @@ class AbelianTensor(TensorCommon):
                 if len(self.shape) == 1:
                     assert other.invar
                     assert other.defval == 0
-                    assert self.compatible_indices(other, 0, 0)
+                    if not self.compatible_indices(other, 0, 0):
+                        raise ValueError(
+                            "matrix_dot: index 0 of self and index 0 of other "
+                            "are not compatible."
+                        )
                     if self.dirs[0] + other.dirs[0] != 0:
                         warnings.warn(
                             "Automatically flipping dir 0 of self in dot.",
@@ -1998,7 +2045,11 @@ class AbelianTensor(TensorCommon):
                 elif len(other.shape) == 1:
                     assert self.invar
                     assert self.defval == 0
-                    assert self.compatible_indices(other, 1, 0)
+                    if not self.compatible_indices(other, 1, 0):
+                        raise ValueError(
+                            "matrix_dot: index 1 of self and index 0 of other "
+                            "are not compatible."
+                        )
                     if self.dirs[1] + other.dirs[0] != 0:
                         warnings.warn(
                             "Automatically flipping dir 0 of other in dot.",
@@ -2027,7 +2078,11 @@ class AbelianTensor(TensorCommon):
                 else:
                     assert self.invar and other.invar
                     assert self.defval == other.defval == 0
-                    assert self.compatible_indices(other, 1, 0)
+                    if not self.compatible_indices(other, 1, 0):
+                        raise ValueError(
+                            "matrix_dot: index 1 of self and index 0 of other "
+                            "are not compatible."
+                        )
                     if self.dirs[1] + other.dirs[0] != 0:
                         warnings.warn(
                             "Automatically flipping dir 0 of other in dot.",
