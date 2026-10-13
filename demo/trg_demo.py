@@ -1,14 +1,16 @@
 """A script that runs TRG on the Ising model, and measures performance with and
 without explicit symmetries for the tensors.
 """
-import numpy as np
 import timeit
-from scipy import integrate
-from ncon import ncon
-from matplotlib import pyplot as plt
+
+import numpy as np
 import seaborn as sns
-from abeliantensors import Tensor, TensorZ2
+from matplotlib import pyplot as plt
+from ncon import ncon
+from scipy import integrate
 from trg import trg_step
+
+from abeliantensors import Tensor, TensorZ2
 
 
 def ising_tensor(J, h, beta):
@@ -109,10 +111,11 @@ def main():
             A0_np, shape=[[1, 1]] * 4, qhape=[[0, 1]] * 4, dirs=[1, -1, 1, -1]
         )
         for chi in chis:
-            print("Starting chi = {}.".format(chi))
+            print(f"Starting chi = {chi}.")
             A = A0
             log_fact = 0
-            for i in range(1, n_iters + 1):
+            # i is used after the loop for the normalization.
+            for i in range(1, n_iters + 1):  # noqa: B007
                 A, log_fact, err = trg_step(A, log_fact, chi, eps)
             # Compute the partition function and free energy per site.
             Z = ncon(A, [1, 1, 2, 2]).value()
@@ -124,9 +127,10 @@ def main():
             f = (-logZ / beta) / 2 ** (i + 1)
             f_err = (f - f_exact) / f_exact
             msg = (
-                "Done converging chi = {}. Error in free energy: {:.5e}\n"
+                f"Done converging chi = {chi}. "
+                f"Error in free energy: {f_err:.5e}\n"
                 "Starting timeit."
-            ).format(chi, f_err)
+            )
             print(msg)
 
             timing = timeit.repeat(
@@ -137,7 +141,7 @@ def main():
                 repeat=5,
             )
             timing = sorted(timing)
-            msg = "Timings for chi = {}:\n{}".format(chi, timing)
+            msg = f"Timings for chi = {chi}:\n{timing}"
             timings[cls].append(min(timing))
 
     # The plotting. We use seaborn's default style.

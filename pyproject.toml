@@ -31,3 +31,25 @@ demo = ["ncon>=2", "matplotlib", "seaborn"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 filterwarnings = ["error::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 79
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "NPY", "B"]
+ignore = [
+    # Tests rely on the legacy global RNG seeded by pytest-randomly.
+    "NPY002",
+    # zip(strict=True) would raise where code may rely on truncation;
+    # adding it is a behavior change, out of scope for the modernization.
+    "B905",
+    # Remaining %-formats use %r/%i flags in __repr__ and warnings; leave
+    # them as they are rather than hand-rewrite the output formats.
+    "UP031",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# `l` is used conventionally for lists of indices/legs.
+"src/**" = ["E741"]
+"tests/**" = ["E741"]

@@ -1,13 +1,15 @@
-import numpy as np
-import heapq
-import warnings
-import itertools as itt
 import functools as fct
+import heapq
+import itertools as itt
 import operator as opr
-import scipy.sparse.linalg as spsla
-from copy import deepcopy
-from .tensorcommon import TensorCommon
+import warnings
 from collections.abc import Iterable
+from copy import deepcopy
+
+import numpy as np
+import scipy.sparse.linalg as spsla
+
+from .tensorcommon import TensorCommon
 
 # Some utility functions for generating methods of AbelianTensor efficiently.
 
@@ -140,7 +142,7 @@ class AbelianTensor(TensorCommon):
             dirs = [1] * len(shape)
             warnings.warn(
                 "In __init__, dirs was not given and is thus "
-                "generated to be [[1,...,1], ..., [1,...,1]]."
+                "generated to be [[1,...,1], ..., [1,...,1]].", stacklevel=2
             )
         shape = list(map(list, shape))
         qhape = list(map(list, qhape))
@@ -375,18 +377,18 @@ class AbelianTensor(TensorCommon):
             return self.sects.__getitem__(k)
         except KeyError:
             if not isinstance(k, tuple) or not len(k) == len(self.qhape):
-                raise KeyError("Malformed block key: %s" % str(k))
+                raise KeyError(f"Malformed block key: {str(k)}") from None
             if not self.is_valid_key(k):
                 raise KeyError(
-                    "Requested a block forbidden by symmetry: %s" % str(k)
-                )
+                    f"Requested a block forbidden by symmetry: {str(k)}"
+                ) from None
             # Even though the requested block was not found it's a valid
             # block, so we create it.
             try:
                 block = self.defblock(k)
             except ValueError:
                 msg = "Requested block has non-existent quantum numbers."
-                raise KeyError(msg)
+                raise KeyError(msg) from None
             self[k] = block
             return block
 
@@ -427,25 +429,17 @@ class AbelianTensor(TensorCommon):
 
     def __str__(self, *args, **kwargs):
         r = (
-            "%s object:\n"
-            "shape = %s,\n"
-            "qhape = %s, qodulus = %s, charge = %s\n"
-            "dirs = %s,\n"
-            "defval = %s, invar = %s, dtype = %s\n"
+            f"{str(type(self))} object:\n"
+            f"shape = {self.shape},\n"
+            f"qhape = {self.qhape}, qodulus = {self.qodulus}, "
+            f"charge = {self.charge}\n"
+            f"dirs = {self.dirs},\n"
+            f"defval = {self.defval}, invar = {self.invar}, "
+            f"dtype = {self.dtype}\n"
             "blocks:"
-        ) % (
-            str(type(self)),
-            self.shape,
-            self.qhape,
-            self.qodulus,
-            self.charge,
-            self.dirs,
-            self.defval,
-            self.invar,
-            self.dtype,
         )
         for k, v in self.sects.items():
-            r += "\n%s:\n%s" % (k, v)
+            r += f"\n{k}:\n{v}"
         return r
 
     __add__ = _generate_binary_deferer(opr.add)
@@ -506,9 +500,8 @@ class AbelianTensor(TensorCommon):
         """
         if not np.can_cast(self.dtype, dtype, casting=casting):
             raise ValueError(
-                "Cannot cast {} into {} with casting={}.".format(
-                    self.dtype, dtype, casting
-                )
+                f"Cannot cast {self.dtype} into {dtype} "
+                f"with casting={casting}."
             )
         if copy:
             res = self.copy()
@@ -830,7 +823,7 @@ class AbelianTensor(TensorCommon):
         if dirs is None:
             warnings.warn(
                 "In from_ndarray, dirs was not given and is thus generated to "
-                "be [1,...,1]."
+                "be [1,...,1].", stacklevel=2
             )
             dirs = [1] * len(shape)
         # Boolean arrays require some special treatement, namely they can not
@@ -1242,7 +1235,7 @@ class AbelianTensor(TensorCommon):
         if dirs is None:
             warnings.warn(
                 "In join_indices, dirs was not given and is thus generated to "
-                "be [1,...,1]."
+                "be [1,...,1].", stacklevel=2
             )
             dirs = [1] * len(index_batches)
         else:
@@ -1385,7 +1378,9 @@ class AbelianTensor(TensorCommon):
 
         # Compute the new shape, qhape and dir.
         for new_d, batch in zip(dirs, index_batches):
-            product_of_tuple = lambda l: fct.reduce(opr.mul, l)
+            def product_of_tuple(t):
+                return fct.reduce(opr.mul, t)
+
             cart_prod_of_dims = itt.product(
                 *tuple(res.shape[i] for i in batch)
             )
@@ -1464,7 +1459,7 @@ class AbelianTensor(TensorCommon):
             if dirs is None:
                 warnings.warn(
                     "In split_indices, dirs was not given and is "
-                    "thus generated to be full of ones."
+                    "thus generated to be full of ones.", stacklevel=2
                 )
                 dir_batches = list(map(lambda dim: [1] * len(dim), dims))
             else:
@@ -1476,7 +1471,7 @@ class AbelianTensor(TensorCommon):
             if dirs is None:
                 warnings.warn(
                     "In split_indices, dirs was not given and is "
-                    "thus generated to be [[1,...,1]]."
+                    "thus generated to be [[1,...,1]].", stacklevel=2
                 )
                 dir_batches = [[1] * len(dims)]
             else:
@@ -1739,7 +1734,8 @@ class AbelianTensor(TensorCommon):
                 assert self.compatible_indices(other, 0, 0)
                 if self.dirs[0] + other.dirs[0] != 0:
                     warnings.warn(
-                        "Automatically flipping dir 0 of other in dot."
+                        "Automatically flipping dir 0 of other in dot.",
+                        stacklevel=2,
                     )
                     other = other.flip_dir(0)
                 res = 0
@@ -1776,7 +1772,8 @@ class AbelianTensor(TensorCommon):
                     assert self.compatible_indices(other, 0, 0)
                     if self.dirs[0] + other.dirs[0] != 0:
                         warnings.warn(
-                            "Automatically flipping dir 0 of self in dot."
+                            "Automatically flipping dir 0 of self in dot.",
+                            stacklevel=2,
                         )
                         self = self.flip_dir(0)
                     res_shape = [other.shape[1]]
@@ -1803,7 +1800,8 @@ class AbelianTensor(TensorCommon):
                     assert self.compatible_indices(other, 1, 0)
                     if self.dirs[1] + other.dirs[0] != 0:
                         warnings.warn(
-                            "Automatically flipping dir 0 of other in dot."
+                            "Automatically flipping dir 0 of other in dot.",
+                            stacklevel=2,
                         )
                         other = other.flip_dir(0)
                     res_shape = [self.shape[0]]
@@ -1830,7 +1828,8 @@ class AbelianTensor(TensorCommon):
                     assert self.compatible_indices(other, 1, 0)
                     if self.dirs[1] + other.dirs[0] != 0:
                         warnings.warn(
-                            "Automatically flipping dir 0 of other in dot."
+                            "Automatically flipping dir 0 of other in dot.",
+                            stacklevel=2,
                         )
                         other = other.flip_dir(0)
                     res_shape = [self.shape[0], other.shape[1]]
@@ -1905,7 +1904,7 @@ class AbelianTensor(TensorCommon):
                 "and has no effect. Rely instead on getting the error as a "
                 "return value, and print it yourself."
             )
-            warnings.warn(msg)
+            warnings.warn(msg, stacklevel=2)
         chis = self._matrix_decomp_format_chis(chis, eps)
         maxchi = max(chis)
         assert self.defval == 0
@@ -2082,7 +2081,7 @@ class AbelianTensor(TensorCommon):
                 "and has no effect. Rely instead on getting the error as a "
                 "return value, and print it yourself."
             )
-            warnings.warn(msg)
+            warnings.warn(msg, stacklevel=2)
         chis = self._matrix_decomp_format_chis(chis, eps)
         maxchi = max(chis)
         assert self.defval == 0

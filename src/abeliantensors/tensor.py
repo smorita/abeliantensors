@@ -1,10 +1,12 @@
-import numpy as np
-import operator as opr
 import functools as fct
-import scipy.sparse.linalg as spsla
+import operator as opr
 import warnings
-from .tensorcommon import TensorCommon
 from collections.abc import Iterable
+
+import numpy as np
+import scipy.sparse.linalg as spsla
+
+from .tensorcommon import TensorCommon
 
 
 class Tensor(TensorCommon, np.ndarray):
@@ -154,15 +156,15 @@ class Tensor(TensorCommon, np.ndarray):
 
     def real(self):
         """Return the real part."""
-        return super(Tensor, self).real
+        return super().real
 
     def imag(self):
         """Return the imaginary part."""
-        return super(Tensor, self).imag
+        return super().imag
 
     def sum(self):
         """Return the element-wise sum."""
-        return super(Tensor, self).sum().value()
+        return super().sum().value()
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Miscellaneous
@@ -427,7 +429,7 @@ class Tensor(TensorCommon, np.ndarray):
         # We assert that the tensor is square with respect to axis1 and axis2,
         # to follow as closely as possible what AbelianTensor does.
         assert self.compatible_indices(self, axis1, axis2)
-        trace = super(Tensor, self).trace(axis1=axis1, axis2=axis2)
+        trace = super().trace(axis1=axis1, axis2=axis2)
         return type(self).from_ndarray(trace)
 
     def dot(self, B, indices):
@@ -489,7 +491,7 @@ class Tensor(TensorCommon, np.ndarray):
                 "and has no effect. Rely instead on getting the error as a "
                 "return value, and print it yourself."
             )
-            warnings.warn(msg)
+            warnings.warn(msg, stacklevel=2)
         chis = self._matrix_decomp_format_chis(chis, eps)
         mindim = min(self.shape)
         maxchi = max(chis)
@@ -575,7 +577,7 @@ class Tensor(TensorCommon, np.ndarray):
                 "and has no effect. Rely instead on getting the error as a "
                 "return value, and print it yourself."
             )
-            warnings.warn(msg)
+            warnings.warn(msg, stacklevel=2)
         chis = self._matrix_decomp_format_chis(chis, eps)
         mindim = min(self.shape)
         maxchi = max(chis)

@@ -1,8 +1,9 @@
-import numpy as np
-import itertools as itt
 import functools as fct
+import itertools as itt
 import warnings
 from collections.abc import Iterable
+
+import numpy as np
 
 
 class TensorCommon:
@@ -42,10 +43,10 @@ class TensorCommon:
         """Return a string that describes the form of the tensor: the `shape`,
         `qhape` and `dirs`.
         """
-        s = "shape: %s\nqhape: %s\ndirs: %s" % (
-            str(self.shape),
-            str(self.qhape),
-            str(self.dirs),
+        s = (
+            f"shape: {str(self.shape)}\n"
+            f"qhape: {str(self.qhape)}\n"
+            f"dirs: {str(self.dirs)}"
         )
         return s
 
@@ -243,7 +244,7 @@ class TensorCommon:
                 self.dirs[i] + other.dirs[j] == 0 for i, j in zip(a, b)
             )
         ):
-            warnings.warn("dirs in dot do not match.")
+            warnings.warn("dirs in dot do not match.", stacklevel=2)
 
         # Make lists of indices to contract (sum) and not contract (open) for
         # self (s_) and other (o_). Use them to transpose each tensor into a
@@ -533,7 +534,7 @@ class TensorCommon:
         elif weight in ("right", "r", "b", "v"):
             V = V.multiply_diag(S, 0, direction="left")
         else:
-            raise ValueError("Unknown value for weight: {}".format(weight))
+            raise ValueError(f"Unknown value for weight: {weight}")
 
         if return_sings:
             ret_val = U, S, V

@@ -1,6 +1,8 @@
-import numpy as np
-from .abeliantensor import AbelianTensor
 from collections.abc import Iterable
+
+import numpy as np
+
+from .abeliantensor import AbelianTensor
 
 
 class TensorZN(AbelianTensor):
@@ -20,7 +22,7 @@ class TensorZN(AbelianTensor):
         if qhape is None:
             qhape = type(self)._shape_to_qhape(shape)
         qodulus = type(self).qodulus
-        return super(TensorZN, self).__init__(
+        return super().__init__(
             shape, *args, qhape=qhape, qodulus=qodulus, **kwargs
         )
 
@@ -30,7 +32,7 @@ class TensorZN(AbelianTensor):
         if qim is None:
             qim = cls._dim_to_qim(dim)
         qodulus = cls.qodulus
-        return super(TensorZN, cls).eye(
+        return super().eye(
             dim, qim=qim, qodulus=qodulus, dtype=np.float64
         )
 
@@ -44,7 +46,7 @@ class TensorZN(AbelianTensor):
         if qhape is None:
             qhape = cls._shape_to_qhape(shape)
         qodulus = cls.qodulus
-        return super(TensorZN, cls).initialize_with(
+        return super().initialize_with(
             numpy_func, shape, *args, qhape=qhape, qodulus=qodulus, **kwargs
         )
 
@@ -65,7 +67,7 @@ class TensorZN(AbelianTensor):
         if qhape is None:
             qhape = cls._shape_to_qhape(shape)
         qodulus = cls.qodulus
-        return super(TensorZN, cls).from_ndarray(
+        return super().from_ndarray(
             a, *args, shape=shape, qhape=qhape, qodulus=qodulus, **kwargs
         )
 
@@ -81,7 +83,7 @@ class TensorZN(AbelianTensor):
 
     @classmethod
     def _shape_to_qhape(cls, shape):
-        """Given the `shape` of a tensor, generate the the corresponding default
+        """Given the `shape` of a tensor, generate the corresponding default
         quantum numbers.
         """
         return [cls._dim_to_qim(dim) for dim in shape]
@@ -102,7 +104,7 @@ class TensorZN(AbelianTensor):
                 qims = [type(self)._shape_to_qhape(dim) for dim in dims]
             else:
                 qims = type(self)._shape_to_qhape(dims)
-        return super(TensorZN, self).split_indices(
+        return super().split_indices(
             indices, dims, qims=qims, dirs=dirs
         )
 

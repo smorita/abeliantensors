@@ -1,8 +1,8 @@
 """Define utility functions and set up pytest fixtures for the test suite."""
-import pytest
 import numpy as np
-from abeliantensors import Tensor
-from abeliantensors import TensorZ2, TensorU1, TensorZ3
+import pytest
+
+from abeliantensors import Tensor, TensorU1, TensorZ2, TensorZ3
 
 
 @pytest.fixture(scope="module")
@@ -44,7 +44,7 @@ def parse_tensorclass(s):
     elif s == "tensoru1":
         return TensorU1
     else:
-        msg = "Unknown tensor class name: {}".format(s)
+        msg = f"Unknown tensor class name: {s}"
         raise ValueError(msg)
 
 
@@ -92,7 +92,7 @@ def rshape(n_qnums):
         if n is None:
             n = np.random.randint(nlow, high=nhigh)
         shape = []
-        for i in range(n):
+        for _i in range(n):
             if n_qnums is None:
                 dim_dim = np.random.randint(low=1, high=5)
             else:

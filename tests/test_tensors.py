@@ -2,8 +2,10 @@
 import numpy as np
 import pytest
 from ncon import ncon
-from .ndarray_decomp import svd, eig
+
 from abeliantensors import Tensor
+
+from .ndarray_decomp import eig, svd
 
 # # # # # # # # # # # # # # # # # # # #
 # Utilities that tests use
@@ -43,7 +45,7 @@ def test_to_and_from_ndarray(
     """Test converting random tensors to ndarrays and back, checking that this
     leaves them invariant.
     """
-    for iter_num in range(n_iters):
+    for _iter_num in range(n_iters):
         T = rtensor()
         T_np = T.to_ndarray()
         S = tensorclass.from_ndarray(
@@ -58,7 +60,7 @@ def test_arithmetic_and_comparison(
     n_iters, tensorclass, n_qnums, rshape, rqhape, rdirs, rcharge, rtensor
 ):
     """Test basic arthmetic and comparison operations."""
-    for iter_num in range(n_iters):
+    for _iter_num in range(n_iters):
         # Create two tensors with the same shape, qhape, and dirs, but possibly
         # different charges.
         s = rshape()
@@ -105,7 +107,7 @@ def test_transposing(
     """Test transposing and swapaxes on random tensors, checking consistency
     and comparing agaings np.transpose.
     """
-    for iter_num in range(n_iters):
+    for _iter_num in range(n_iters):
         # Create a random tensor with at least one index.
         T = rtensor(nlow=1)
         shp = T.shape
@@ -142,7 +144,7 @@ def test_splitting_and_joining_two(
     """First join and then split back two indices of a random tensors. Check
     that this leaves the tensor invariant.
     """
-    for iter_num in range(n_iters):
+    for _iter_num in range(n_iters):
         # First join and then split two indices, compare with original.
         T = rtensor(nlow=2)
         T_orig = T.copy()
@@ -212,7 +214,7 @@ def test_splitting_and_joining_many(
     the original one though, because doing the permutations right would just be
     so much work.
     """
-    for iter_num in range(n_iters):
+    for _iter_num in range(n_iters):
         T = rtensor(nlow=1)  # Random tensor with at least one index.
 
         # Generate random sizes for the index batches to be joined.
@@ -273,7 +275,7 @@ def test_to_and_from_matrix(
     """Reshape random tensors into matrices and back, check that this leaves
     them invariant.
     """
-    for iter_num in range(n_iters):
+    for _iter_num in range(n_iters):
         T = rtensor()
         T_orig = T.copy()
         # Partition the indices of T into two sets, i_list and its complement.
@@ -339,7 +341,7 @@ def test_diag_vector_to_matrix(
     """Generate a random vector, turn it into a diagonal matrix, compare
     against NumPy.
     """
-    for iter_num in range(n_iters):
+    for _iter_num in range(n_iters):
         T = rtensor(n=1, invar=False)
         T_np = T.to_ndarray()
         T_diag = T.diag()
@@ -359,7 +361,7 @@ def test_diag_matrix_to_vector(
 ):
     """Generate a random matrix, extract its diagonal, compare against NumPy.
     """
-    for iter_num in range(n_iters):
+    for _iter_num in range(n_iters):
         shp = rshape(n=2)
         shp[1] = shp[0]
         qhp = rqhape(shape=shp)
@@ -387,7 +389,7 @@ def test_trace(
     """Generate a random tensor with at least two indices, trace over two of
     them, and compare against NumPy.
     """
-    for iter_num in range(n_iters):
+    for _iter_num in range(n_iters):
         shp = rshape(nlow=2)
         qhp = rqhape(shape=shp)
         dirs = rdirs(shape=shp)
@@ -420,7 +422,7 @@ def test_multiply_diag(
     """Generate a random tensor and diagonal matrix, use multiply_diag to
     multiply the them, compare against NumPy.
     """
-    for iter_num in range(n_iters):
+    for _iter_num in range(n_iters):
         # Generate a random tensor, and index to multiply on, and whether to do
         # it from the right or the left.
         T = rtensor(nlow=1, chilow=1)
@@ -461,7 +463,7 @@ def test_product_invariant(
     """Generate two invariant tensors, contract them over a random set of legs,
     and compare with NumPy.
     """
-    for iter_num in range(n_iters):
+    for _iter_num in range(n_iters):
         shp1 = rshape(nlow=1)  # Shape of the first tensor
         # Choose how many indices to contract order, and which indices of
         # tensor #1 those should be.
@@ -514,7 +516,7 @@ def test_product_invariant(
         product_shp = [shp1[i] for i in i_list_compl] + [
             shp2[j] for j in j_list_compl
         ]
-        if type(T) == Tensor:
+        if type(T) is Tensor:
             product_shp = Tensor.flatten_shape(product_shp)
         assert T.shape == product_shp
         # Do the product using NumPy and compare.
@@ -529,7 +531,7 @@ def test_product_noninvariant(
     vectors, make them *not* be invariant. Contract them and compare with
     NumPy.
     """
-    for iter_num in range(n_iters):
+    for _iter_num in range(n_iters):
         # Generate tensor #1.
         n1 = np.random.randint(1, 3)
         T1 = rtensor(n=n1, chilow=1, invar=(n1 != 1))
@@ -593,7 +595,7 @@ def test_svd(
         chis = list(range(chi + 1))
     else:
         chis = None
-    for iter_num in range(n_iters):
+    for _iter_num in range(n_iters):
         # Generate a random tensor with at least two indices, and partition the
         # indices into two groups.
         T = rtensor(nlow=2, chilow=1)
@@ -708,7 +710,7 @@ def test_eig(
         chis = list(range(chi + 1))
     else:
         chis = None
-    for iter_num in range(n_iters):
+    for _iter_num in range(n_iters):
         # Generate a tensor that is square when indices in i_list and
         # i_list_compl are joined.
         n = np.random.randint(low=1, high=3)
@@ -805,7 +807,7 @@ def test_split(
     """Use both `split` and SVD to decompose a random tensor, and compare the
     results.
     """
-    for iter_num in range(n_iters):
+    for _iter_num in range(n_iters):
         # Generate a random tensor with at least two indices, and a random
         # bipartition of its indices.
         T = rtensor(nlow=2, chilow=1)
@@ -844,7 +846,7 @@ def test_norm(
     n_iters, tensorclass, n_qnums, rshape, rqhape, rdirs, rcharge, rtensor
 ):
     """Compute the Frobenius norm of a tensor, compare with NumPy."""
-    for iter_num in range(n_iters):
+    for _iter_num in range(n_iters):
         T = rtensor()
         T_np = T.to_ndarray()
         T_norm = T.norm()
@@ -860,7 +862,7 @@ def test_max(
     n_iters, tensorclass, n_qnums, rshape, rqhape, rdirs, rcharge, rtensor
 ):
     """Get the maximum element of a real tensor, compare with NumPy."""
-    for iter_num in range(n_iters):
+    for _iter_num in range(n_iters):
         T = rtensor(chilow=1, cmplx=False)
         T_np = T.to_ndarray()
         T_max = T.max()
@@ -872,7 +874,7 @@ def test_min(
     n_iters, tensorclass, n_qnums, rshape, rqhape, rdirs, rcharge, rtensor
 ):
     """Get the minimum element of a real tensor, compare with NumPy."""
-    for iter_num in range(n_iters):
+    for _iter_num in range(n_iters):
         T = rtensor(chilow=1, cmplx=False)
         T_np = T.to_ndarray()
         T_min = T.min()
@@ -884,7 +886,7 @@ def test_average(
     n_iters, tensorclass, n_qnums, rshape, rqhape, rdirs, rcharge, rtensor
 ):
     """Get the average element of a real tensor, compare with NumPy."""
-    for iter_num in range(n_iters):
+    for _iter_num in range(n_iters):
         T = rtensor(chilow=1)
         T_np = T.to_ndarray()
         T_average = T.average()
@@ -898,7 +900,7 @@ def test_expand_dim(
     """Use `expand_dim` to a give a random tensor a trivial extra index, and
     compare the outcome with NumPy.
     """
-    for iter_num in range(n_iters):
+    for _iter_num in range(n_iters):
         T = rtensor()
         T_orig = T.copy()
         axis = np.random.randint(0, high=len(T.shape) + 1)
@@ -919,7 +921,7 @@ def test_eye(
     n_iters, tensorclass, n_qnums, rshape, rqhape, rdirs, rcharge, rtensor
 ):
     """Create an identity matrix, compare with NumPy."""
-    for iter_num in range(n_iters):
+    for _iter_num in range(n_iters):
         dim = rshape(n=1)[0]
         qim = rqhape(shape=[dim])[0]
         T = tensorclass.eye(dim, qim=qim)
@@ -934,7 +936,7 @@ def test_flip_dir(
     n_iters, tensorclass, n_qnums, rshape, rqhape, rdirs, rcharge, rtensor
 ):
     """Test that flipping the direction of an index twice is a noop."""
-    for iter_num in range(n_iters):
+    for _iter_num in range(n_iters):
         T = rtensor(nlow=1)
         T_orig = T.copy()
         i = np.random.randint(low=0, high=len(T.shape))
@@ -951,7 +953,7 @@ def test_expand_dims_product(
     """Test contracting over a trivial index created with `expand_dims` by
     comparing with NumPy.
     """
-    for iter_num in range(n_iters):
+    for _iter_num in range(n_iters):
         T1 = rtensor()
         T2 = rtensor()
         axis1 = np.random.randint(0, high=len(T1.shape) + 1)
@@ -982,7 +984,7 @@ def test_ncon_svd_ncon(
     The point of this test is to mimic a typical sequence in a tensor network
     algorithm, where decompositions and contractions follow each other.
     """
-    for iter_num in range(n_iters):
+    for _iter_num in range(n_iters):
         # Create random form data for a random number of tensors (at most 4),
         # and make a set that lists all tuples of ``(i, j)`` where `i` numbers
         # tensors and `j` numbers the indices of the `i`th tensor.
@@ -1007,7 +1009,7 @@ def test_ncon_svd_ncon(
         index_numbers = set(range(-len(indices), 0))
         for shp in shapes:
             ncon_list = []
-            for index in shp:
+            for _index in shp:
                 ncon_list.append(index_numbers.pop())
             ncon_lists.append(ncon_list)
 
