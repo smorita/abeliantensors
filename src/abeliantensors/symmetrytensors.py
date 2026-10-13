@@ -32,9 +32,7 @@ class TensorZN(AbelianTensor):
         if qim is None:
             qim = cls._dim_to_qim(dim)
         qodulus = cls.qodulus
-        return super().eye(
-            dim, qim=qim, qodulus=qodulus, dtype=np.float64
-        )
+        return super().eye(dim, qim=qim, qodulus=qodulus, dtype=np.float64)
 
     @classmethod
     def initialize_with(
@@ -104,9 +102,7 @@ class TensorZN(AbelianTensor):
                 qims = [type(self)._shape_to_qhape(dim) for dim in dims]
             else:
                 qims = type(self)._shape_to_qhape(dims)
-        return super().split_indices(
-            indices, dims, qims=qims, dirs=dirs
-        )
+        return super().split_indices(indices, dims, qims=qims, dirs=dirs)
 
 
 class TensorZ2(TensorZN):

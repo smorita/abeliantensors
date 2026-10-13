@@ -1,4 +1,5 @@
 """The main test suite for abeliantensors."""
+
 import numpy as np
 import pytest
 from ncon import ncon
@@ -29,8 +30,7 @@ def check_with_np(func, T, S, T_np, S_np):
 
 
 def check_internal_consistency(T):
-    """If `T` is a symmetric tensor, check that its form data is consistent.
-    """
+    """If `T` is a symmetric tensor, check that its form data is consistent."""
     if not isinstance(T, (Tensor, np.generic, np.ndarray)):
         T.check_consistency()
 
@@ -49,7 +49,11 @@ def test_to_and_from_ndarray(
         T = rtensor()
         T_np = T.to_ndarray()
         S = tensorclass.from_ndarray(
-            T_np, shape=T.shape, qhape=T.qhape, dirs=T.dirs, charge=T.charge,
+            T_np,
+            shape=T.shape,
+            qhape=T.qhape,
+            dirs=T.dirs,
+            charge=T.charge,
         )
         check_internal_consistency(T)
         check_internal_consistency(S)
@@ -264,7 +268,10 @@ def test_splitting_and_joining_many(
         T = T.join_indices(*tuple(index_batches), dirs=new_dirs)
         check_internal_consistency(T)
         T = T.split_indices(
-            batch_new_indices, dim_batches, qims=qim_batches, dirs=dir_batches,
+            batch_new_indices,
+            dim_batches,
+            qims=qim_batches,
+            dirs=dir_batches,
         )
         check_internal_consistency(T)
 
@@ -359,8 +366,7 @@ def test_diag_vector_to_matrix(
 def test_diag_matrix_to_vector(
     n_iters, tensorclass, n_qnums, rshape, rqhape, rdirs, rcharge, rtensor
 ):
-    """Generate a random matrix, extract its diagonal, compare against NumPy.
-    """
+    """Generate a random matrix, extract its diagonal, compare against NumPy."""
     for _iter_num in range(n_iters):
         shp = rshape(n=2)
         shp[1] = shp[0]
@@ -911,7 +917,11 @@ def test_expand_dim(
         check_internal_consistency(T)
         T_np = np.expand_dims(T_np, axis)
         T_np_T = type(T).from_ndarray(
-            T_np, shape=T.shape, qhape=T.qhape, dirs=T.dirs, charge=T.charge,
+            T_np,
+            shape=T.shape,
+            qhape=T.qhape,
+            dirs=T.dirs,
+            charge=T.charge,
         )
         check_internal_consistency(T_np_T)
         assert T.allclose(T_np_T)
@@ -927,7 +937,11 @@ def test_eye(
         T = tensorclass.eye(dim, qim=qim)
         T_np = np.eye(T.flatten_dim(dim))
         T_np = type(T).from_ndarray(
-            T_np, shape=T.shape, qhape=T.qhape, dirs=T.dirs, charge=T.charge,
+            T_np,
+            shape=T.shape,
+            qhape=T.qhape,
+            dirs=T.dirs,
+            charge=T.charge,
         )
         assert (T == T_np).all()
 
@@ -968,7 +982,11 @@ def test_expand_dims_product(
         check_internal_consistency(T)
         T_np = np.tensordot(T1_np, T2_np, (axis1, axis2))
         T_np_T = type(T).from_ndarray(
-            T_np, shape=T.shape, qhape=T.qhape, dirs=T.dirs, charge=T.charge,
+            T_np,
+            shape=T.shape,
+            qhape=T.qhape,
+            dirs=T.dirs,
+            charge=T.charge,
         )
         check_internal_consistency(T_np_T)
         assert T.allclose(T_np_T)
@@ -1042,7 +1060,11 @@ def test_ncon_svd_ncon(
         check_internal_consistency(T)
         np_T = ncon(np_tensors, ncon_lists)
         np_T = type(T).from_ndarray(
-            np_T, shape=T.shape, qhape=T.qhape, dirs=T.dirs, charge=T.charge,
+            np_T,
+            shape=T.shape,
+            qhape=T.qhape,
+            dirs=T.dirs,
+            charge=T.charge,
         )
         assert T.allclose(np_T)
 

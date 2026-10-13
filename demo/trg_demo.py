@@ -1,6 +1,7 @@
 """A script that runs TRG on the Ising model, and measures performance with and
 without explicit symmetries for the tensors.
 """
+
 import timeit
 
 import numpy as np
@@ -42,15 +43,15 @@ def ising_exact_f(J, h, beta):
     temperature beta.
     """
     if h != 0:
-        msg = "Free energy of Ising model with H != 0 " "not implemented."
+        msg = "Free energy of Ising model with H != 0 not implemented."
         raise NotImplementedError(msg)
     sinh = np.sinh(2 * beta * J)
     cosh = np.cosh(2 * beta * J)
 
     def integrand(theta):
         res = np.log(
-            cosh ** 2
-            + sinh ** 2
+            cosh**2
+            + sinh**2
             * np.sqrt(1 + sinh ** (-4) - 2 * sinh ** (-2) * np.cos(theta))
         )
         return res

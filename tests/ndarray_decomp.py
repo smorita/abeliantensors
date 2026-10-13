@@ -3,6 +3,7 @@ decompositions of numpy ndarrays. It's used by the test suite, to compare with
 results gotten by doing similar decompositions of various instances of
 TensorCommon.
 """
+
 from collections.abc import Iterable
 
 import numpy as np
@@ -94,7 +95,7 @@ def svd(
         else:
             chis = sorted(chis)
 
-    sum_all_sq = sum(s ** 2)
+    sum_all_sq = sum(s**2)
     # Find the smallest chi for which the error is small enough.
     # If none is found, use the largest chi.
     if sum(s) != 0:
@@ -114,7 +115,7 @@ def svd(
                         chi -= 1
                     else:
                         break
-            sum_disc_sq = sum((s ** 2)[chi:])
+            sum_disc_sq = sum((s**2)[chi:])
             if sum_all_sq != 0:
                 err = np.sqrt(sum_disc_sq / sum_all_sq)
             else:
@@ -217,7 +218,7 @@ def eig(
             chis = sorted(chis)
 
     S_abs = abs(S)
-    sum_all_sq = sum(S_abs ** 2)
+    sum_all_sq = sum(S_abs**2)
     # Find the smallest chi for which the error is small enough.
     # If none is found, use the largest chi.
     if sum(S_abs) != 0:
@@ -237,7 +238,7 @@ def eig(
                         chi -= 1
                     else:
                         break
-            sum_disc_sq = sum((S_abs ** 2)[chi:])
+            sum_disc_sq = sum((S_abs**2)[chi:])
             if sum_all_sq != 0:
                 err = np.sqrt(sum_disc_sq / sum_all_sq)
             else:

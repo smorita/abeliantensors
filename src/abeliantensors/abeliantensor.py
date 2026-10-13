@@ -142,7 +142,8 @@ class AbelianTensor(TensorCommon):
             dirs = [1] * len(shape)
             warnings.warn(
                 "In __init__, dirs was not given and is thus "
-                "generated to be [[1,...,1], ..., [1,...,1]].", stacklevel=2
+                "generated to be [[1,...,1], ..., [1,...,1]].",
+                stacklevel=2,
             )
         shape = list(map(list, shape))
         qhape = list(map(list, qhape))
@@ -289,7 +290,7 @@ class AbelianTensor(TensorCommon):
         dirs=None,
         invar=True,
         charge=0,
-        **kwargs
+        **kwargs,
     ):
         """Create a tensor initialized with a given numpy function.
 
@@ -823,7 +824,8 @@ class AbelianTensor(TensorCommon):
         if dirs is None:
             warnings.warn(
                 "In from_ndarray, dirs was not given and is thus generated to "
-                "be [1,...,1].", stacklevel=2
+                "be [1,...,1].",
+                stacklevel=2,
             )
             dirs = [1] * len(shape)
         # Boolean arrays require some special treatement, namely they can not
@@ -1146,7 +1148,7 @@ class AbelianTensor(TensorCommon):
         if norm_sq is None:
             # The user may provide this if the given S has been pretruncated
             # already. If not, compute it.
-            norm_sq = sum(S ** 2)
+            norm_sq = sum(S**2)
         if trunc_err_func is None:
             trunc_err_func = fct.partial(
                 cls.default_trunc_err_func, norm_sq=norm_sq
@@ -1235,7 +1237,8 @@ class AbelianTensor(TensorCommon):
         if dirs is None:
             warnings.warn(
                 "In join_indices, dirs was not given and is thus generated to "
-                "be [1,...,1].", stacklevel=2
+                "be [1,...,1].",
+                stacklevel=2,
             )
             dirs = [1] * len(index_batches)
         else:
@@ -1378,6 +1381,7 @@ class AbelianTensor(TensorCommon):
 
         # Compute the new shape, qhape and dir.
         for new_d, batch in zip(dirs, index_batches):
+
             def product_of_tuple(t):
                 return fct.reduce(opr.mul, t)
 
@@ -1459,7 +1463,8 @@ class AbelianTensor(TensorCommon):
             if dirs is None:
                 warnings.warn(
                     "In split_indices, dirs was not given and is "
-                    "thus generated to be full of ones.", stacklevel=2
+                    "thus generated to be full of ones.",
+                    stacklevel=2,
                 )
                 dir_batches = list(map(lambda dim: [1] * len(dim), dims))
             else:
@@ -1471,7 +1476,8 @@ class AbelianTensor(TensorCommon):
             if dirs is None:
                 warnings.warn(
                     "In split_indices, dirs was not given and is "
-                    "thus generated to be [[1,...,1]].", stacklevel=2
+                    "thus generated to be [[1,...,1]].",
+                    stacklevel=2,
                 )
                 dir_batches = [[1] * len(dims)]
             else:
@@ -1692,8 +1698,7 @@ class AbelianTensor(TensorCommon):
             not right and self.dirs[axis] != diag_vect.dirs[0]
         ):
             warnings.warn(
-                "Automatically flipping dir 0 of diag_vect in "
-                "multiply_diag.",
+                "Automatically flipping dir 0 of diag_vect in multiply_diag.",
                 stacklevel=2,
             )
             diag_vect = diag_vect.flip_dir(0)

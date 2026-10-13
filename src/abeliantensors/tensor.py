@@ -36,7 +36,7 @@ class Tensor(TensorCommon, np.ndarray):
         charge=None,
         invar=None,
         dirs=None,
-        **kwargs
+        **kwargs,
     ):
         shape = cls.flatten_shape(shape)
         res = np.ndarray(shape, *args, **kwargs).view(cls)
@@ -52,7 +52,7 @@ class Tensor(TensorCommon, np.ndarray):
         charge=None,
         invar=None,
         dirs=None,
-        **kwargs
+        **kwargs,
     ):
         """Use the given `numpy_func` to initialize a tensor of `shape`."""
         shape = cls.flatten_shape(shape)
@@ -250,7 +250,7 @@ class Tensor(TensorCommon, np.ndarray):
             # The user may provide norm_sq if the given S has been pretruncated
             # already. If not, compute it from the given S.
             if norm_sq is None:
-                norm_sq = sum(S ** 2)
+                norm_sq = sum(S**2)
             trunc_err_func = fct.partial(
                 cls.default_trunc_err_func, norm_sq=norm_sq
             )

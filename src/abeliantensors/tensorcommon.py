@@ -94,7 +94,7 @@ class TensorCommon:
         start with.
         """
         if norm_sq is None:
-            norm_sq = sum(S ** 2)
+            norm_sq = sum(S**2)
         sum_disc = sum(S[chi:] ** 2)
         err = np.sqrt(sum_disc / norm_sq)
         return err
@@ -361,7 +361,7 @@ class TensorCommon:
             left_qims=U_qims[0],
             right_qims=U_qims[1],
             left_dirs=U_dirs[0],
-            right_dirs=U_dirs[1]
+            right_dirs=U_dirs[1],
         )
         ret_val = (S, U)
         if return_rel_err:
@@ -450,14 +450,14 @@ class TensorCommon:
             left_qims=U_qims[0],
             right_qims=U_qims[1],
             left_dirs=U_dirs[0],
-            right_dirs=U_dirs[1]
+            right_dirs=U_dirs[1],
         )
         V = V.from_matrix(
             *V_dims,
             left_qims=V_qims[0],
             right_qims=V_qims[1],
             left_dirs=V_dirs[0],
-            right_dirs=V_dirs[1]
+            right_dirs=V_dirs[1],
         )
 
         ret_val = (U, S, V)
@@ -500,7 +500,7 @@ class TensorCommon:
         return_rel_err=False,
         return_sings=False,
         weight="both",
-        **kwargs
+        **kwargs,
     ):
         """Split the tensor into two with an SVD.
 

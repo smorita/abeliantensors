@@ -1,4 +1,5 @@
 """Define utility functions and set up pytest fixtures for the test suite."""
+
 import numpy as np
 import pytest
 
@@ -7,8 +8,7 @@ from abeliantensors import Tensor, TensorU1, TensorZ2, TensorZ3
 
 @pytest.fixture(scope="module")
 def tensorclass(request):
-    """A pytest fixture that returns the tensor class currently being tested.
-    """
+    """A pytest fixture that returns the tensor class currently being tested."""
     return request.param
 
 
@@ -115,8 +115,7 @@ def rshape(n_qnums):
 
 @pytest.fixture
 def rqhape(n_qnums):
-    """Return a function that generates random `qhape`s for symmetric tensors.
-    """
+    """Return a function that generates random `qhape`s for symmetric tensors."""
 
     def _rqhape(shape, qlow=-3, qhigh=3):
         """Return a random `qhape` for a symmetric tensor.
@@ -150,8 +149,7 @@ def rqhape(n_qnums):
 
 @pytest.fixture
 def rdirs():
-    """Return a function that generates random `dirs`s for symmetric tensors.
-    """
+    """Return a function that generates random `dirs`s for symmetric tensors."""
 
     def _rdirs(shape=None, length=None):
         """Return a random `dirs` for a symmetric tensor.
@@ -170,8 +168,7 @@ def rdirs():
 
 @pytest.fixture
 def rcharge():
-    """Return a function that generates random charges for symmetric tensors.
-    """
+    """Return a function that generates random charges for symmetric tensors."""
 
     def _rcharge(low=0, high=4):
         """Return a random charge for a symmetric tensor, i.e. a random integer
@@ -200,7 +197,7 @@ def rtensor(tensorclass, n_qnums, rqhape, rshape, rdirs, rcharge):
         charge=None,
         dirs=None,
         cmplx=True,
-        **kwargs
+        **kwargs,
     ):
         """Return a random tensor of the given form data.
 
