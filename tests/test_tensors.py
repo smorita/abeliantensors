@@ -366,7 +366,9 @@ def test_diag_vector_to_matrix(
 def test_diag_matrix_to_vector(
     n_iters, tensorclass, n_qnums, rshape, rqhape, rdirs, rcharge, rtensor
 ):
-    """Generate a random matrix, extract its diagonal, compare against NumPy."""
+    """Generate a random matrix, extract its diagonal, compare against
+    NumPy.
+    """
     for _iter_num in range(n_iters):
         shp = rshape(n=2)
         shp[1] = shp[0]

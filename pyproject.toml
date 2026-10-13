@@ -34,6 +34,8 @@ filterwarnings = ["error::DeprecationWarning"]
 
 [tool.ruff]
 line-length = 79
+# Plans/specs contain illustrative code blocks, not project code.
+extend-exclude = ["docs/superpowers"]
 target-version = "py312"
 
 [tool.ruff.lint]
