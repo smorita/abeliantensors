@@ -149,3 +149,51 @@ def test_trace_validation_works_under_python_O():
         """
     )
     assert "ValueError" in result.stderr
+
+
+def test_decompositions_require_invariant_tensors():
+    N = z2([[1, 2], [2, 1]], [1, -1], invar=False)
+    with pytest.raises(ValueError, match="invariant"):
+        _ = N.svd([0], [1])
+    with pytest.raises(ValueError, match="invariant"):
+        _ = N.eig([0], [1])
+    shifted = z2([[1, 2], [2, 1]], [1, -1]) + 1.0
+    with pytest.raises(ValueError, match="defval"):
+        _ = shifted.svd([0], [1])
+
+
+def test_eig_rejects_bad_matrices():
+    with pytest.raises(ValueError, match="charge"):
+        _ = z2([[1, 2], [1, 2]], [1, -1], charge=1).eig([0], [1])
+    # eig() orients the dirs itself, so only matrix_eig sees bad dirs.
+    with pytest.raises(ValueError, match="dirs"):
+        _ = z2([[1, 2], [1, 2]], [1, 1]).matrix_eig()
+    with pytest.raises(ValueError, match="square"):
+        _ = z2([[1, 2], [2, 2]], [1, -1]).eig([0], [1])
+
+
+def test_matrix_dot_and_diag_require_invariant_matrices():
+    M = z2([[1, 1], [1, 1]], [1, -1])
+    N = z2([[1, 1], [1, 1]], [1, -1], invar=False)
+    v = z2([[1, 1]], [1], invar=False)
+    with pytest.raises(ValueError, match="invariant"):
+        _ = M.matrix_dot(N)
+    with pytest.raises(ValueError, match="invariant"):
+        _ = N.matrix_dot(M)
+    with pytest.raises(ValueError, match="invariant"):
+        _ = v.matrix_dot(N)
+    with pytest.raises(ValueError, match="invariant"):
+        _ = N.matrix_dot(v.flip_dir(0))
+    with pytest.raises(ValueError, match="invariant"):
+        _ = N.diag()
+
+
+def test_svd_validation_works_under_python_O():
+    result = run_optimized(
+        """
+        from abeliantensors import TensorZ2
+        N = TensorZ2.random([[1, 2], [2, 1]], dirs=[1, -1], invar=False)
+        N.svd([0], [1])
+        """
+    )
+    assert "ValueError" in result.stderr

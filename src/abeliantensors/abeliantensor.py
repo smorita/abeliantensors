@@ -124,6 +124,20 @@ def _check_form_data(cls, shape, qhape, dirs):
         )
 
 
+def _require_invariant(tensor, operation):
+    """Raise ValueError unless `tensor` is invariant with ``defval == 0``,
+    as `operation` requires.
+    """
+    if tensor.defval != 0:
+        raise ValueError(
+            f"{operation} needs a tensor with defval 0, got {tensor.defval}."
+        )
+    if not tensor.invar:
+        raise ValueError(
+            f"{operation} needs an invariant tensor (invar=True)."
+        )
+
+
 class AbelianTensor(TensorCommon):
     """A class for symmetry preserving tensors capabable of handling abelian
     symmetry groups.
@@ -166,7 +180,8 @@ class AbelianTensor(TensorCommon):
     `defval`: The default value that the tensor has everywhere outside the
     blocks set in `sects`. If the tensor is a scalar with no indices then its
     value is its `defval` and it has no blocks. Note that many of the methods -
-    such as `dot` and `svd` - require ``defval == 0`` (and assert this). The
+    such as `dot` and `svd` - require ``defval == 0`` (and raise ValueError
+    otherwise). The
     main use of ``defval != 0`` is to be able to handle tensors of boolean
     values that arise in comparisons.
 
@@ -341,7 +356,8 @@ class AbelianTensor(TensorCommon):
             )
             return res
         else:
-            assert self.invar
+            if not self.invar:
+                raise ValueError("diag needs an invariant matrix.")
             if not self.compatible_indices(self, 0, 1):
                 raise ValueError(
                     "diag needs a square matrix: indices 0 and 1 are not "
@@ -2010,8 +2026,7 @@ class AbelianTensor(TensorCommon):
 
                 # Vector times matrix
                 if len(self.shape) == 1:
-                    assert other.invar
-                    assert other.defval == 0
+                    _require_invariant(other, "matrix_dot")
                     if not self.compatible_indices(other, 0, 0):
                         raise ValueError(
                             "matrix_dot: index 0 of self and index 0 of other "
@@ -2043,8 +2058,7 @@ class AbelianTensor(TensorCommon):
 
                 # Matrix times vector
                 elif len(other.shape) == 1:
-                    assert self.invar
-                    assert self.defval == 0
+                    _require_invariant(self, "matrix_dot")
                     if not self.compatible_indices(other, 1, 0):
                         raise ValueError(
                             "matrix_dot: index 1 of self and index 0 of other "
@@ -2076,8 +2090,8 @@ class AbelianTensor(TensorCommon):
 
                 # Matrix times matrix
                 else:
-                    assert self.invar and other.invar
-                    assert self.defval == other.defval == 0
+                    _require_invariant(self, "matrix_dot")
+                    _require_invariant(other, "matrix_dot")
                     if not self.compatible_indices(other, 1, 0):
                         raise ValueError(
                             "matrix_dot: index 1 of self and index 0 of other "
@@ -2166,13 +2180,23 @@ class AbelianTensor(TensorCommon):
             warnings.warn(msg, stacklevel=2)
         chis = self._matrix_decomp_format_chis(chis, eps)
         maxchi = max(chis)
-        assert self.defval == 0
-        assert self.invar
-        assert self.charge == self.symmetry.identity
-        assert self.dirs[0] + self.dirs[1] == 0
-        assert set(zip(self.qhape[0], self.shape[0])) == set(
+        _require_invariant(self, "eig")
+        if self.charge != self.symmetry.identity:
+            raise ValueError(
+                "eig needs a matrix with identity charge, got "
+                f"{self.charge!r}."
+            )
+        if self.dirs[0] + self.dirs[1] != 0:
+            raise ValueError(
+                f"eig needs opposite dirs on the two indices, got {self.dirs}."
+            )
+        if set(zip(self.qhape[0], self.shape[0])) != set(
             zip(self.qhape[1], self.shape[1])
-        )
+        ):
+            raise ValueError(
+                "eig needs a square matrix: the two indices have different "
+                "sectors."
+            )
 
         S_dtype = np.float64 if hermitian else np.complex128
         U_dtype = self.dtype if hermitian else np.complex128
@@ -2343,8 +2367,7 @@ class AbelianTensor(TensorCommon):
             warnings.warn(msg, stacklevel=2)
         chis = self._matrix_decomp_format_chis(chis, eps)
         maxchi = max(chis)
-        assert self.defval == 0
-        assert self.invar
+        _require_invariant(self, "svd")
 
         # SVD each sector at a time.
         # While doing so, also keep track of a list of all singular values, as
