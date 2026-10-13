@@ -1,4 +1,5 @@
 # Introduction
+[![CI](https://github.com/smorita/abeliantensors/actions/workflows/ci.yml/badge.svg)](https://github.com/smorita/abeliantensors/actions/workflows/ci.yml)
 [![Readthedocs status badge][rtd-badge]][rtd-url]
 
 abeliantensors is a Python 3 package that implements U(1) and ℤₙ symmetry
