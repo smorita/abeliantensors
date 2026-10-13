@@ -30,6 +30,37 @@ Symmetric tensor classes
    :no-undoc-members:
    :show-inheritance:
 
+.. autoclass:: abeliantensors.symmetrytensors.TensorZ2Z2
+   :members:
+   :no-undoc-members:
+   :show-inheritance:
+
+.. autoclass:: abeliantensors.symmetrytensors.TensorZ2Z3
+   :members:
+   :no-undoc-members:
+   :show-inheritance:
+
+.. autoclass:: abeliantensors.symmetrytensors.FiniteAbelianTensor
+   :members:
+   :no-undoc-members:
+   :show-inheritance:
+
+
+Symmetry groups
+-------------------------------------
+
+.. autoclass:: abeliantensors.symmetry.AbelianGroup
+   :members:
+   :no-undoc-members:
+
+.. autoclass:: abeliantensors.symmetry.CyclicGroup
+   :show-inheritance:
+
+.. autoclass:: abeliantensors.symmetry.U1Group
+   :show-inheritance:
+
+.. autoclass:: abeliantensors.symmetry.ProductGroup
+   :show-inheritance:
 
 AbelianTensor
 -------------------------------------

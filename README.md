@@ -2,12 +2,13 @@
 [![CI](https://github.com/smorita/abeliantensors/actions/workflows/ci.yml/badge.svg)](https://github.com/smorita/abeliantensors/actions/workflows/ci.yml)
 [![Readthedocs status badge][rtd-badge]][rtd-url]
 
-abeliantensors is a Python 3 package that implements U(1) and ℤₙ symmetry
+abeliantensors is a Python 3 package that implements abelian symmetry
 preserving tensors, as described by Singh et al. in
 [arXiv: 0907.2994](https://arxiv.org/abs/0907.2994) and
 [arXiv: 1008.4774](https://arxiv.org/abs/1008.4774). abeliantensors has been
 designed for use in tensor network algorithms, and works well with the
-[ncon function](https://github.com/mhauru/ncon).
+[ncon function](https://github.com/mhauru/ncon). Supported symmetry groups
+include U(1), ℤₙ, and direct products of cyclic groups such as ℤ₂×ℤ₂.
 
 ## Installation
 
@@ -45,9 +46,27 @@ To build the API documentation locally:
 uv run --group docs make -C docs html   # output in docs/build/html
 ```
 
-abeliantensors exports classes `TensorU1`, `TensorZ2`, and `TensorZ3`. Other
-cyclic groups ℤₙ can be implemented with one-liners, see the file
-`symmetrytensors.py` for examples. abeliantensors also exports a class called
+abeliantensors exports classes `TensorU1`, `TensorZ2`, `TensorZ3`,
+`TensorZ2Z2`, and `TensorZ2Z3`. The symmetry of each class is an abelian group
+object, and other finite abelian groups can be implemented with one-liners:
+
+```python
+from abeliantensors import CyclicGroup, FiniteAbelianTensor, ProductGroup
+
+
+class TensorZ5(FiniteAbelianTensor):
+    symmetry = CyclicGroup(5)
+
+
+class TensorZ2Z4(FiniteAbelianTensor):
+    symmetry = ProductGroup(CyclicGroup(2), CyclicGroup(4))
+```
+
+Quantum numbers are integers for `CyclicGroup` and `U1Group`, and tuples such
+as `(1, 0)` for `ProductGroup`. The old way of fixing a cyclic group with a
+class attribute `qodulus = 5` still works but is deprecated.
+
+abeliantensors also exports a class called
 `Tensor`, that is just a wrapper around regular NumPy ndarrays, but that
 implements the exact same interface as the symmetric tensor classes. This
 allows for easy switching between utilizing and not utilizing the symmetry
@@ -170,8 +189,8 @@ Here's a class diagram for the library:
 ![Class diagram](figs/classdiagram.svg)
 
 The user-facing classes that one would instantiate are the ones at the bottom.
-`TensorU1`, `TensorZ2`, and `TensorZ3` implement symmetric tensors for the
-three different symmetry groups, `Tensor` is the wrapper class around NumPy
+`TensorU1`, `TensorZ2`, `TensorZ3`, `TensorZ2Z2`, and `TensorZ2Z3` implement
+symmetric tensors for different symmetry groups, `Tensor` is the wrapper class around NumPy
 arrays.
 
 Implementation-wise, all the fun is in `AbelianTensor`, that is the parent of
