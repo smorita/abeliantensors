@@ -162,4 +162,12 @@ class TensorZ2Z3(FiniteAbelianTensor):   symmetry = ProductGroup(CyclicGroup(2),
 
 ## 計測結果
 
-(実装後に記入する)
+計測環境: 13th Gen Intel(R) Core(TM) i7-1360P(WSL2), Python 3.12, numpy 2.5.4, `benchmarks/trg_bench.py`(2 回のうち速いほう)
+
+| chi | Tensor 変更前 [s] | TensorZ2 変更前 [s] | Tensor 変更後 [s] | TensorZ2 変更後 [s] | TensorZ2 の変化 |
+|---|---|---|---|---|---|
+| 8  | 0.0010 | 0.0021 | | | |
+| 16 | 0.0232 | 0.0093 | | | |
+| 24 | 0.1663 | 0.0513 | | | |
+
+変更前の 2 回の計測の間で、最大 20% 程度のばらつきがあった(TensorZ2、chi=16 で 0.0113 秒と 0.0093 秒)。
