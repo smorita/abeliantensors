@@ -11,7 +11,7 @@ import textwrap
 import numpy as np
 import pytest
 
-from abeliantensors import AbelianTensor, Tensor, TensorZ2
+from abeliantensors import AbelianTensor, Tensor, TensorCommon, TensorZ2
 
 
 def run_optimized(code):
@@ -197,3 +197,42 @@ def test_svd_validation_works_under_python_O():
         """
     )
     assert "ValueError" in result.stderr
+
+
+def test_tensorcommon_declarations_are_type_checking_only():
+    """Tensor inherits conj etc. from np.ndarray; declarations made in
+    TensorCommon for type checkers must not shadow them at runtime.
+    """
+    for name in (
+        "shape",
+        "qhape",
+        "dirs",
+        "charge",
+        "initialize_with",
+        "conj",
+        "join_indices",
+        "split_indices",
+        "compatible_indices",
+    ):
+        assert name not in vars(TensorCommon)
+    T = Tensor.random([2, 2]) + 1j * Tensor.random([2, 2])
+    assert np.allclose(T.conj(), np.conj(np.asarray(T)))
+
+
+@pytest.mark.parametrize("cls", [Tensor, TensorZ2])
+def test_decompositions_accept_single_int_indices(cls):
+    if cls is Tensor:
+        T = Tensor.random([2, 3])
+    else:
+        T = TensorZ2.random([[1, 1], [2, 1]], dirs=[1, -1])
+    U, S, V = T.svd(0, 1)
+    assert np.allclose(
+        U.dot(S.diag(), (1, 0)).dot(V, (1, 0)).to_ndarray(), T.to_ndarray()
+    )
+    US, SV = T.split(0, 1)
+    assert np.allclose(US.dot(SV, (1, 0)).to_ndarray(), T.to_ndarray())
+    US, SV, rel_err = T.split(0, 1, return_rel_err=True)
+    assert rel_err < 1e-12
+    M = T.dot(T.conj(), (1, 1))
+    S, U = M.eig(0, 1, hermitian=True)
+    assert S.shape is not None

@@ -1,5 +1,6 @@
 import warnings
 from collections.abc import Iterable
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -10,6 +11,28 @@ class TensorCommon:
 
     Useful also for type checking as in ``isinstance(T, TensorCommon)``.
     """
+
+    if TYPE_CHECKING:
+        # Attributes and methods that the subclasses (Tensor, AbelianTensor)
+        # provide and that the methods of this class use. They are declared
+        # only for type checkers: at runtime they must not exist here, because
+        # Tensor inherits some of them (e.g. conj) from np.ndarray, which comes
+        # after TensorCommon in its MRO.
+        shape: Any
+        qhape: Any
+        dirs: Any
+        charge: Any
+
+        @classmethod
+        def initialize_with(cls, *args: Any, **kwargs: Any) -> Any: ...
+
+        def conj(self, *args: Any, **kwargs: Any) -> Any: ...
+
+        def join_indices(self, *args: Any, **kwargs: Any) -> Any: ...
+
+        def split_indices(self, *args: Any, **kwargs: Any) -> Any: ...
+
+        def compatible_indices(self, *args: Any, **kwargs: Any) -> Any: ...
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Initializing tensors
@@ -134,42 +157,41 @@ class TensorCommon:
             else:
                 dirs = []
 
-        result = self.join_indices(
+        # join_indices does not return a matrix with left_inds as the first
+        # index and right_inds as the second, so we may have to transpose.
+        swap = bool(left_inds and right_inds and left_inds[0] > right_inds[0])
+        if not return_transposed_shape_data:
+            result = self.join_indices(left_inds, right_inds, dirs=dirs)
+            if swap:
+                result = result.swapaxes(1, 0)
+            return result
+
+        (
+            result,
+            transposed_shape,
+            transposed_qhape,
+            transposed_dirs,
+        ) = self.join_indices(
             left_inds,
             right_inds,
             dirs=dirs,
-            return_transposed_shape_data=return_transposed_shape_data,
+            return_transposed_shape_data=True,
         )
-        if return_transposed_shape_data:
-            (
-                result,
-                transposed_shape,
-                transposed_qhape,
-                transposed_dirs,
-            ) = result
-
-        # join_indices does not return a matrix with left_inds as the first
-        # index and right_inds as the second, so we may have to transpose.
-        if left_inds and right_inds and left_inds[0] > right_inds[0]:
+        if swap:
             result = result.swapaxes(1, 0)
             # Do the corresponding swap for the transposed form data as well.
-            if return_transposed_shape_data:
-                ts_left = transposed_shape[: len(right_inds)]
-                ts_right = transposed_shape[len(right_inds) :]
-                transposed_shape = ts_right + ts_left
-                if transposed_qhape is not None:
-                    qs_left = transposed_qhape[: len(right_inds)]
-                    qs_right = transposed_qhape[len(right_inds) :]
-                    transposed_qhape = qs_right + qs_left
-                if transposed_dirs is not None:
-                    qs_left = transposed_dirs[: len(right_inds)]
-                    qs_right = transposed_dirs[len(right_inds) :]
-                    transposed_dirs = qs_right + qs_left
-
-        if return_transposed_shape_data:
-            return result, transposed_shape, transposed_qhape, transposed_dirs
-        else:
-            return result
+            ts_left = transposed_shape[: len(right_inds)]
+            ts_right = transposed_shape[len(right_inds) :]
+            transposed_shape = ts_right + ts_left
+            if transposed_qhape is not None:
+                qs_left = transposed_qhape[: len(right_inds)]
+                qs_right = transposed_qhape[len(right_inds) :]
+                transposed_qhape = qs_right + qs_left
+            if transposed_dirs is not None:
+                qs_left = transposed_dirs[: len(right_inds)]
+                qs_right = transposed_dirs[len(right_inds) :]
+                transposed_dirs = qs_right + qs_left
+        return result, transposed_shape, transposed_qhape, transposed_dirs
 
     def from_matrix(
         self,
@@ -278,16 +300,16 @@ class TensorCommon:
         # back into a tensor of the correct shape.
         l_dims = s_transposed_shape[: len(s_open)]
         r_dims = o_transposed_shape[len(o_sum) :]
-        try:
+        if s_transposed_qhape is not None and o_transposed_qhape is not None:
             l_qims = s_transposed_qhape[: len(s_open)]
             r_qims = o_transposed_qhape[len(o_sum) :]
-        except TypeError:
+        else:
             l_qims = None
             r_qims = None
-        try:
+        if s_transposed_dirs is not None and o_transposed_dirs is not None:
             l_dirs = s_transposed_dirs[: len(s_open)]
             r_dirs = o_transposed_dirs[len(o_sum) :]
-        except TypeError:
+        else:
             l_dirs = None
             r_dirs = None
         self = self.from_matrix(
@@ -337,10 +359,8 @@ class TensorCommon:
         The original tensor is not modified by this method.
         """
         # Turn single indices into singleton tuples.
-        if not isinstance(a, Iterable):
-            a = (a,)
-        if not isinstance(b, Iterable):
-            b = (b,)
+        a = tuple(a) if isinstance(a, Iterable) else (a,)
+        b = tuple(b) if isinstance(b, Iterable) else (b,)
         # Reshape into a matrix and eigenvalue decompose as a matrix.
         (
             self,
@@ -420,10 +440,8 @@ class TensorCommon:
         The original tensor is not modified by this method.
         """
         # Turn single indices into singleton tuples.
-        if not isinstance(a, Iterable):
-            a = (a,)
-        if not isinstance(b, Iterable):
-            b = (b,)
+        a = tuple(a) if isinstance(a, Iterable) else (a,)
+        b = tuple(b) if isinstance(b, Iterable) else (b,)
 
         (
             self,
@@ -546,5 +564,6 @@ class TensorCommon:
         else:
             ret_val = U, V
         if return_rel_err:
-            ret_val += (svd_result[3],)
+            # With return_rel_err the last element of svd_result is rel_err.
+            ret_val += (svd_result[-1],)
         return ret_val
