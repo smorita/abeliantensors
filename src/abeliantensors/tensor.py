@@ -9,7 +9,9 @@ import scipy.sparse.linalg as spsla
 from .tensorcommon import TensorCommon
 
 
-class Tensor(TensorCommon, np.ndarray):
+# TensorCommon declares `shape: Any` for type checkers (see its
+# TYPE_CHECKING block); here the ndarray.shape property provides it.
+class Tensor(TensorCommon, np.ndarray):  # pyright: ignore[reportIncompatibleMethodOverride]
     """A wrapper class for NumPy arrays.
 
     This class implements no new functionality beyond NumPy arrays, but simply
@@ -154,15 +156,18 @@ class Tensor(TensorCommon, np.ndarray):
         """Return the element-wise sign."""
         return np.sign(self)
 
-    def real(self):
+    # A method, not a property as in ndarray, to match AbelianTensor.real().
+    def real(self):  # pyright: ignore[reportIncompatibleMethodOverride]
         """Return the real part."""
-        return super().real
+        return super().real  # pyright: ignore[reportAttributeAccessIssue]
 
-    def imag(self):
+    # A method, not a property as in ndarray, to match AbelianTensor.imag().
+    def imag(self):  # pyright: ignore[reportIncompatibleMethodOverride]
         """Return the imaginary part."""
-        return super().imag
+        return super().imag  # pyright: ignore[reportAttributeAccessIssue]
 
-    def sum(self):
+    # Takes no axis argument and returns a scalar, like AbelianTensor.sum().
+    def sum(self):  # pyright: ignore[reportIncompatibleMethodOverride]
         """Return the element-wise sum."""
         return super().sum().value()
 
@@ -232,7 +237,7 @@ class Tensor(TensorCommon, np.ndarray):
     def _find_trunc_dim(
         cls,
         S,
-        chis=None,
+        chis,
         eps=0,
         break_degenerate=False,
         degeneracy_eps=1e-6,
@@ -255,6 +260,11 @@ class Tensor(TensorCommon, np.ndarray):
             trunc_err_func = fct.partial(
                 cls.default_trunc_err_func, norm_sq=norm_sq
             )
+        if not chis:
+            raise ValueError("chis must not be empty.")
+        # Overwritten below; initialized so that they are always bound.
+        chi = chis[0]
+        err = 0
         # Find the smallest chi for which the error is small enough. If none
         # is found, use the largest chi.
         if sum(S) != 0:
@@ -332,6 +342,7 @@ class Tensor(TensorCommon, np.ndarray):
         index_batches = [list(map(perm.index, b)) for b in index_batches]
         self = self.transpose(perm)
 
+        transposed_shape = None
         if return_transposed_shape_data:
             transposed_shape = self.shape
 
@@ -378,10 +389,10 @@ class Tensor(TensorCommon, np.ndarray):
         # Format the input so that indices is a list and dim_batches is a list
         # of lists.
         if isinstance(indices, Iterable):
+            indices = list(indices)
             if len(indices) != len(dims):
                 raise ValueError("indices and dims must have the same length.")
-            indices = list(indices)
-            dim_batches = list(map(list, dims))
+            dim_batches = [list(dim) for dim in dims]
         else:
             indices = [indices]
             dim_batches = [list(dims)]
@@ -426,7 +437,8 @@ class Tensor(TensorCommon, np.ndarray):
         res = res.swapaxes(-1, axis)
         return res
 
-    def trace(self, axis1=0, axis2=1):
+    # Returns a Tensor and checks compatibility, like AbelianTensor.trace().
+    def trace(self, axis1=0, axis2=1):  # pyright: ignore[reportIncompatibleMethodOverride]
         """Return the trace over indices `axis1` and `axis2`."""
         # Require the tensor to be square with respect to axis1 and axis2, to
         # follow as closely as possible what AbelianTensor does.
@@ -438,7 +450,9 @@ class Tensor(TensorCommon, np.ndarray):
         trace = super().trace(axis1=axis1, axis2=axis2)
         return type(self).from_ndarray(trace)
 
-    def dot(self, B, indices):
+    # tensordot-style signature, unlike ndarray.dot; the parameter is named B
+    # (unlike TensorCommon.dot's `other`) for backward compatibility.
+    def dot(self, B, indices):  # pyright: ignore[reportIncompatibleMethodOverride]
         """Dot product of tensors.
 
         See `numpy.tensordot` on how to use this, the interface is exactly the
@@ -589,6 +603,9 @@ class Tensor(TensorCommon, np.ndarray):
         maxchi = max(chis)
         if sparse and maxchi < mindim - 1:
             U, S, V = spsla.svds(self, k=maxchi, return_singular_vectors=True)
+            if U is None or V is None:
+                # Not reached: we ask svds for the singular vectors.
+                raise RuntimeError("svds returned no singular vectors.")
             norm_sq = self.norm_sq()
         else:
             U, S, V = np.linalg.svd(self, full_matrices=False)

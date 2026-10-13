@@ -143,4 +143,15 @@ Indices = int | Sequence[int]      # dot / svd などに渡すインデックス
 
 ## 無視した箇所
 
-(実装時に記入する。`# pyright: ignore` を使った箇所の、ファイル・行・ルール・理由)
+フェーズ A の時点で `# pyright: ignore` を使った箇所。どれも `Tensor` が `np.ndarray` のサブクラスであることによるもので、公開 API を変えずには直せない。
+
+| 箇所 | ルール | 理由 |
+|---|---|---|
+| `tensor.py` `class Tensor(TensorCommon, np.ndarray)` | `reportIncompatibleMethodOverride` | `TensorCommon` が型チェッカー向けに宣言した `shape: Any` が、`ndarray.shape` プロパティと食い違う。実行時には `ndarray.shape` が使われる |
+| `tensor.py` `def real(self)` | `reportIncompatibleMethodOverride` | `ndarray.real` はプロパティだが、`AbelianTensor.real()` に合わせてメソッドにしている |
+| `tensor.py` `real` の中の `super().real` | `reportAttributeAccessIssue` | 同上 |
+| `tensor.py` `def imag(self)` | `reportIncompatibleMethodOverride` | `ndarray.imag` はプロパティだが、`AbelianTensor.imag()` に合わせてメソッドにしている |
+| `tensor.py` `imag` の中の `super().imag` | `reportAttributeAccessIssue` | 同上 |
+| `tensor.py` `def sum(self)` | `reportIncompatibleMethodOverride` | `AbelianTensor.sum()` に合わせて、軸の引数を取らずにスカラーを返す |
+| `tensor.py` `def trace(self, axis1=0, axis2=1)` | `reportIncompatibleMethodOverride` | `AbelianTensor.trace()` に合わせて、`Tensor` を返し、インデックスの互換性を確かめる |
+| `tensor.py` `def dot(self, B, indices)` | `reportIncompatibleMethodOverride` | `ndarray.dot` と違い `tensordot` 形式の引数をとる。また、引数名が `TensorCommon.dot` の `other` と違って `B` だが、後方互換のためそのままにしている |
