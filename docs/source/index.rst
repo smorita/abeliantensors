@@ -5,12 +5,6 @@ abeliantensors is a Python 3 package for symmetric tensors, as used in tensor ne
 For installation instructions, usage examples, and other information, see the README at `github.com/mhauru/abeliantensors <https://github.com/mhauru/abeliantensors>`_.
 This page contains the API reference of the package.
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-
-   index
-
 * :ref:`genindex`
 
 Symmetric tensor classes

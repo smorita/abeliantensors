@@ -29,6 +29,10 @@ uv add --editable /path/to/abeliantensors
 ## Usage
 
 For reference documentation see [here][reference-url].
+To build the API documentation locally:
+```
+uv run --group docs make -C docs html   # output in docs/build/html
+```
 
 abeliantensors exports classes `TensorU1`, `TensorZ2`, and `TensorZ3`. Other
 cyclic groups ℤₙ can be implemented with one-liners, see the file
