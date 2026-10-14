@@ -49,7 +49,7 @@ target-version = "py312"
 select = [
     "E", "F", "W", "I", "UP", "NPY", "B",
     # Type annotations on the public API of src/ (see the typing spec).
-    "ANN001", "ANN002", "ANN003", "ANN201", "ANN204", "ANN206",
+    "ANN001", "ANN002", "ANN003", "ANN201", "ANN204", "ANN205", "ANN206",
 ]
 ignore = [
     # Tests rely on the legacy global RNG seeded by pytest-randomly.

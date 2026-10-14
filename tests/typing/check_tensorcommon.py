@@ -66,3 +66,19 @@ def with_flags(flag: bool) -> None:
         | tuple[TensorZ2, TensorZ2, float]
         | tuple[TensorZ2, TensorZ2, TensorZ2, float],
     )
+
+
+# numpy.tensordot-style list indices are accepted, as at runtime.
+assert_type(T.dot(T, [[1], [0]]), TensorZ2)
+assert_type(D.dot(D, [[1], [0]]), Tensor)
+
+# return_transposed_shape_data may also be given positionally.
+assert_type(T.to_matrix([0], [1], None, True), tuple[TensorZ2, Any, Any, Any])
+assert_type(T.to_matrix([0], [1], None, False), TensorZ2)
+
+
+def positional_flag(flag: bool) -> None:
+    assert_type(
+        T.to_matrix([0], [1], None, flag),
+        TensorZ2 | tuple[TensorZ2, Any, Any, Any],
+    )

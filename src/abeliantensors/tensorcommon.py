@@ -153,10 +153,28 @@ class TensorCommon:
         self,
         left_inds: Sequence[int],
         right_inds: Sequence[int],
+        dirs: Sequence[int] | None,
+        return_transposed_shape_data: Literal[True],
+    ) -> tuple[Self, Any, Any, Any]: ...
+
+    @overload
+    def to_matrix(
+        self,
+        left_inds: Sequence[int],
+        right_inds: Sequence[int],
         dirs: Sequence[int] | None = None,
         *,
         return_transposed_shape_data: Literal[True],
     ) -> tuple[Self, Any, Any, Any]: ...
+
+    @overload
+    def to_matrix(
+        self,
+        left_inds: Sequence[int],
+        right_inds: Sequence[int],
+        dirs: Sequence[int] | None = None,
+        return_transposed_shape_data: bool = False,
+    ) -> Self | tuple[Self, Any, Any, Any]: ...
 
     def to_matrix(
         self,
@@ -268,9 +286,7 @@ class TensorCommon:
             indices, final_dims, qims=final_qims, dirs=final_dirs
         )
 
-    def dot(
-        self, other: "TensorCommon", indices: tuple[Indices, Indices]
-    ) -> Self:
+    def dot(self, other: "TensorCommon", indices: Sequence[Indices]) -> Self:
         """Dot product of tensors.
 
         See `numpy.tensordot` on how to use this, the interface is exactly the
