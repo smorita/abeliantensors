@@ -213,6 +213,7 @@ def test_tensorcommon_declarations_are_type_checking_only():
         "join_indices",
         "split_indices",
         "compatible_indices",
+        "value",
     ):
         assert name not in vars(TensorCommon)
     T = Tensor.random([2, 2]) + 1j * Tensor.random([2, 2])

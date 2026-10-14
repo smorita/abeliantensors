@@ -1,8 +1,10 @@
 import warnings
-from collections.abc import Iterable
-from typing import TYPE_CHECKING, Any
+from collections.abc import Iterable, Sequence
+from typing import TYPE_CHECKING, Any, Self
 
 import numpy as np
+
+from ._typing import Indices
 
 
 class TensorCommon:
@@ -34,33 +36,35 @@ class TensorCommon:
 
         def compatible_indices(self, *args: Any, **kwargs: Any) -> Any: ...
 
+        def value(self, *args: Any, **kwargs: Any) -> Any: ...
+
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Initializing tensors
 
     @classmethod
-    def empty(cls, *args, **kwargs):
+    def empty(cls, *args: Any, **kwargs: Any) -> Self:
         """Initialize a tensor of given form with `np.empty`."""
         return cls.initialize_with(np.empty, *args, **kwargs)
 
     @classmethod
-    def zeros(cls, *args, **kwargs):
+    def zeros(cls, *args: Any, **kwargs: Any) -> Self:
         """Initialize a tensor of given form with `np.zeros`."""
         return cls.initialize_with(np.zeros, *args, **kwargs)
 
     @classmethod
-    def ones(cls, *args, **kwargs):
+    def ones(cls, *args: Any, **kwargs: Any) -> Self:
         """Initialize a tensor of given form with `np.ones`."""
         return cls.initialize_with(np.ones, *args, **kwargs)
 
     @classmethod
-    def random(cls, *args, **kwargs):
+    def random(cls, *args: Any, **kwargs: Any) -> Self:
         """Initialize a tensor of given form with np.random.random_sample."""
         return cls.initialize_with(np.random.random_sample, *args, **kwargs)
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Miscellaneous
 
-    def form_str(self):
+    def form_str(self) -> str:
         """Return a string that describes the form of the tensor: the `shape`,
         `qhape` and `dirs`.
         """
@@ -72,7 +76,7 @@ class TensorCommon:
         return s
 
     @staticmethod
-    def flatten_shape(shape):
+    def flatten_shape(shape: Any) -> Any:
         """Given a `shape` that may have dimensions divided between sectors,
         return a flattened shape, that has just the total dimension of each
         index.
@@ -83,7 +87,7 @@ class TensorCommon:
             return shape
 
     @staticmethod
-    def flatten_dim(dim):
+    def flatten_dim(dim: Any) -> int:
         """Given a `dim` for a single index that may be divided between
         sectors, return a flattened dim, that has just the total dimension of
         the index.
@@ -93,19 +97,21 @@ class TensorCommon:
         except TypeError:
             return dim
 
-    def norm_sq(self):
+    def norm_sq(self) -> float:
         """Return the Frobenius norm squared of the tensor."""
         conj = self.conj()
         all_inds = tuple(range(len(self.shape)))
         norm_sq = self.dot(conj, (all_inds, all_inds))
         return np.abs(norm_sq.value())
 
-    def norm(self):
+    def norm(self) -> float:
         """Return the Frobenius norm of the tensor."""
         return np.sqrt(self.norm_sq())
 
     @classmethod
-    def default_trunc_err_func(cls, S, chi, norm_sq=None):
+    def default_trunc_err_func(
+        cls, S: np.ndarray, chi: int, norm_sq: float | None = None
+    ) -> float:
         """The default error function used when truncating decompositions:
         L_2 norm of the discarded singular or eigenvalues ``S[chi:]``, divided
         by the L_2 norm of the whole spectrum `S`.
@@ -195,13 +201,13 @@ class TensorCommon:
 
     def from_matrix(
         self,
-        left_dims,
-        right_dims,
-        left_qims=None,
-        right_qims=None,
-        left_dirs=None,
-        right_dirs=None,
-    ):
+        left_dims: Sequence[Any],
+        right_dims: Sequence[Any],
+        left_qims: Sequence[Any] | None = None,
+        right_qims: Sequence[Any] | None = None,
+        left_dirs: Sequence[int] | None = None,
+        right_dirs: Sequence[int] | None = None,
+    ) -> Self:
         """Reshape a matrix back into a tensor, given the form data for the
         tensor.
 
@@ -233,7 +239,9 @@ class TensorCommon:
             indices, final_dims, qims=final_qims, dirs=final_dirs
         )
 
-    def dot(self, other, indices):
+    def dot(
+        self, other: "TensorCommon", indices: tuple[Indices, Indices]
+    ) -> Self:
         """Dot product of tensors.
 
         See `numpy.tensordot` on how to use this, the interface is exactly the
@@ -488,7 +496,7 @@ class TensorCommon:
             ret_val += (rel_err,)
         return ret_val
 
-    def _matrix_decomp_format_chis(self, chis, eps):
+    def _matrix_decomp_format_chis(self, chis: Any, eps: float) -> list[int]:
         """A common function for formatting the truncation parameters of SVD
         and eig. This is meant to be called by the matrix_svd and matrix_eig
         functions of subclasses.
