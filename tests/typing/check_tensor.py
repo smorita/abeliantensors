@@ -94,3 +94,11 @@ def swap_classes(T: Tensor | TensorZ2) -> None:
     R = U.dot(S.diag(), (1, 0)).dot(V, (1, 0))
     assert_type(R, Tensor | TensorZ2)
     assert_type((R - T).norm(), float)
+
+
+# Matrix multiplication keeps the Tensor type too.
+assert_type(D @ D, Tensor)
+assert_type((D @ D).svd(0, 1), tuple[Tensor, Tensor, Tensor])
+F = Tensor.random([2, 2])
+F @= D
+assert_type(F, Tensor)
