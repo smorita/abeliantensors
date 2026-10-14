@@ -1,6 +1,7 @@
 """Tests for the abelian group objects in abeliantensors.symmetry."""
 
 import copy
+import pickle
 
 import numpy as np
 import pytest
@@ -136,3 +137,11 @@ def test_repr():
         repr(ProductGroup(Z2, Z3))
         == "ProductGroup(CyclicGroup(2), CyclicGroup(3))"
     )
+
+
+@pytest.mark.parametrize("g", [*FINITE_GROUPS, U1Group()], ids=repr)
+def test_pickle_roundtrip(g):
+    h = pickle.loads(pickle.dumps(g))
+    assert h == g
+    assert hash(h) == hash(g)
+    assert h.elements() == g.elements()

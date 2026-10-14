@@ -1,5 +1,9 @@
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable, Sequence
+from typing import Any, Self
 
+import numpy as np
+
+from ._typing import Indices, Qnum
 from .abeliantensor import AbelianTensor
 from .symmetry import CyclicGroup, ProductGroup, U1Group
 
@@ -17,20 +21,39 @@ class FiniteAbelianTensor(AbelianTensor):
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Initializers and factory methods
 
-    def __init__(self, shape, *args, qhape=None, **kwargs):
+    def __init__(
+        self,
+        shape: Sequence[Sequence[int]],
+        *args: Any,
+        qhape: Sequence[Sequence[Qnum]] | None = None,
+        **kwargs: Any,
+    ) -> None:
         if qhape is None:
             qhape = type(self)._shape_to_qhape(shape)
         super().__init__(shape, *args, qhape=qhape, **kwargs)
 
     @classmethod
-    def eye(cls, dim, qim=None, *args, **kwargs):
+    def eye(
+        cls,
+        dim: Sequence[int],
+        qim: Sequence[Qnum] | None = None,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Self:
         """Return the identity matrix of the given dimension `dim`."""
         if qim is None:
             qim = cls._dim_to_qim(dim)
         return super().eye(dim, qim, *args, **kwargs)
 
     @classmethod
-    def initialize_with(cls, numpy_func, shape, *args, qhape=None, **kwargs):
+    def initialize_with(
+        cls,
+        numpy_func: Callable[..., Any],
+        shape: Sequence[Sequence[int]],
+        *args: Any,
+        qhape: Sequence[Sequence[Qnum]] | None = None,
+        **kwargs: Any,
+    ) -> Self:
         """Return a tensor of the given `shape`, initialized with
         `numpy_func`.
         """
@@ -44,7 +67,14 @@ class FiniteAbelianTensor(AbelianTensor):
     # To and from normal numpy arrays
 
     @classmethod
-    def from_ndarray(cls, a, *args, shape=None, qhape=None, **kwargs):
+    def from_ndarray(
+        cls,
+        a: np.ndarray,
+        *args: Any,
+        shape: Sequence[Sequence[int]] | None = None,
+        qhape: Sequence[Sequence[Qnum]] | None = None,
+        **kwargs: Any,
+    ) -> Self:
         """Build a tensor out of a given NumPy array, using the provided form
         data.
 
@@ -52,7 +82,7 @@ class FiniteAbelianTensor(AbelianTensor):
         in the class documentation. See `AbelianTensor.from_ndarray` for more
         documentation.
         """
-        if qhape is None:
+        if qhape is None and shape is not None:
             qhape = cls._shape_to_qhape(shape)
         return super().from_ndarray(
             a, *args, shape=shape, qhape=qhape, **kwargs
@@ -62,7 +92,7 @@ class FiniteAbelianTensor(AbelianTensor):
     # Miscellaneous
 
     @classmethod
-    def _dim_to_qim(cls, dim):
+    def _dim_to_qim(cls, dim: Sequence[int]) -> list[Qnum]:
         """Given the dimensions of sectors along an index, generate the
         corresponding default quantum numbers.
         """
@@ -83,7 +113,9 @@ class FiniteAbelianTensor(AbelianTensor):
         )
 
     @classmethod
-    def _shape_to_qhape(cls, shape):
+    def _shape_to_qhape(
+        cls, shape: Sequence[Sequence[int]]
+    ) -> list[list[Qnum]]:
         """Given the `shape` of a tensor, generate the corresponding default
         quantum numbers.
         """
@@ -92,7 +124,13 @@ class FiniteAbelianTensor(AbelianTensor):
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # The meat: actual tensor operations
 
-    def split_indices(self, indices, dims, qims=None, dirs=None):
+    def split_indices(
+        self,
+        indices: Indices,
+        dims: Sequence[Any],
+        qims: Sequence[Any] | None = None,
+        dirs: Any = None,
+    ) -> Self:
         """Split indices in the spirit of reshape.
 
         If `qims` is not provided, it is generated from `dims` as described in

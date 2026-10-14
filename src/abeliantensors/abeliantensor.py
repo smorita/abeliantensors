@@ -6,7 +6,7 @@ import os
 import warnings
 from collections.abc import Iterable
 from copy import deepcopy
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 import scipy.sparse.linalg as spsla
@@ -1319,7 +1319,7 @@ class AbelianTensor(TensorCommon):
         shape2=None,
         dirs2=None,
         symmetry=None,
-        qodulus=_UNSET,
+        qodulus: Any = _UNSET,
     ):
         """Check that the form data of two tensors match.
 

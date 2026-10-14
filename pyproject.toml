@@ -46,7 +46,11 @@ extend-exclude = ["docs/superpowers"]
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "UP", "NPY", "B"]
+select = [
+    "E", "F", "W", "I", "UP", "NPY", "B",
+    # Type annotations on the public API of src/ (see the typing spec).
+    "ANN001", "ANN002", "ANN003", "ANN201", "ANN204", "ANN206",
+]
 ignore = [
     # Tests rely on the legacy global RNG seeded by pytest-randomly.
     "NPY002",
@@ -61,10 +65,17 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # `l` is used conventionally for lists of indices/legs.
 "src/**" = ["E741"]
-"tests/**" = ["E741"]
+"tests/**" = ["E741", "ANN"]
+"demo/**" = ["ANN"]
+"benchmarks/**" = ["ANN"]
+# Not annotated yet: removed in phase B-3 and B-4 of the typing spec.
+"src/abeliantensors/abeliantensor.py" = ["E741", "ANN"]
+"src/abeliantensors/tensor.py" = ["ANN"]
+# Removed in Task 3 of this plan.
+"src/abeliantensors/tensorcommon.py" = ["ANN"]
 
 [tool.pyright]
-include = ["src"]
+include = ["src", "tests/typing"]
 typeCheckingMode = "standard"
 pythonVersion = "3.12"
 venvPath = "."
