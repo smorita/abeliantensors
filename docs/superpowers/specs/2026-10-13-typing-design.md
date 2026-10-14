@@ -2,7 +2,7 @@
 
 - 日付: 2026-10-13
 - ブランチ: `typing`
-- 状態: レビュー待ち
+- 状態: フェーズ A、B 完了(2026-10-14)
 
 ## 目的
 
@@ -181,3 +181,4 @@ Indices = int | Sequence[int]      # dot / svd などに渡すインデックス
 | `tensor.py` `def dot(self, B, indices)` | `reportIncompatibleMethodOverride` | `ndarray.dot` と違い `tensordot` 形式の引数をとる。また、引数名が `TensorCommon.dot` の `other` と違って `B` だが、後方互換のためそのままにしている |
 | `abeliantensor.py` `__eq__`(`if TYPE_CHECKING:` の中の宣言) | `reportIncompatibleMethodOverride` | 要素ごとの比較の結果としてテンソルを返す。`object.__eq__` の戻り値 `bool` と食い違う |
 | `abeliantensor.py` `__ne__`(同) | `reportIncompatibleMethodOverride` | 同上 |
+| `tensor.py` `if TYPE_CHECKING:` の中の演算子の宣言(`__sub__`、`__rsub__`、`__truediv__`、`__floordiv__`、`__pow__`、`__rpow__`、`__eq__`、`__ne__` の 8 個) | `reportIncompatibleMethodOverride` | NumPy の型定義では、これらの演算子は引数の型ごとに細かく場合分けされているか、`object` の定義(`bool` を返す)と食い違う。実行時の `Tensor` は NumPy の演算子を使い、結果は `Tensor` になるので、`Self` を返すと宣言する。8 個とも、外すと pyright のエラーになることを確認済み |

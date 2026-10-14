@@ -1,13 +1,14 @@
 import functools as fct
 import operator as opr
 import warnings
-from collections.abc import Iterable
-from typing import TYPE_CHECKING, Any, Self
+from collections.abc import Callable, Iterable, Sequence
+from typing import TYPE_CHECKING, Any, Literal, Self, cast, overload
 
 import numpy as np
 import scipy.sparse.linalg as spsla
-from numpy.typing import DTypeLike
+from numpy.typing import ArrayLike, DTypeLike
 
+from ._typing import Indices
 from .tensorcommon import TensorCommon
 
 
@@ -94,14 +95,14 @@ class Tensor(TensorCommon, np.ndarray):  # pyright: ignore[reportIncompatibleMet
 
     def __new__(
         cls,
-        shape,
-        *args,
-        qhape=None,
-        charge=None,
-        invar=None,
-        dirs=None,
-        **kwargs,
-    ):
+        shape: Any,
+        *args: Any,
+        qhape: Any = None,
+        charge: Any = None,
+        invar: Any = None,
+        dirs: Any = None,
+        **kwargs: Any,
+    ) -> Self:
         shape = cls.flatten_shape(shape)
         res = np.ndarray(shape, *args, **kwargs).view(cls)
         return res
@@ -109,28 +110,35 @@ class Tensor(TensorCommon, np.ndarray):  # pyright: ignore[reportIncompatibleMet
     @classmethod
     def initialize_with(
         cls,
-        numpy_func,
-        shape,
-        *args,
-        qhape=None,
-        charge=None,
-        invar=None,
-        dirs=None,
-        **kwargs,
-    ):
+        numpy_func: Callable[..., Any],
+        shape: Any,
+        *args: Any,
+        qhape: Any = None,
+        charge: Any = None,
+        invar: Any = None,
+        dirs: Any = None,
+        **kwargs: Any,
+    ) -> Self:
         """Use the given `numpy_func` to initialize a tensor of `shape`."""
         shape = cls.flatten_shape(shape)
         res = numpy_func(shape, *args, **kwargs).view(cls)
         return res
 
     @classmethod
-    def eye(cls, dim, qim=None, qodulus=None, *args, **kwargs):
+    def eye(
+        cls,
+        dim: Any,
+        qim: Any = None,
+        qodulus: Any = None,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Self:
         """Return the identity matrix of the given dimension dim."""
         dim = cls.flatten_dim(dim)
         res = np.eye(dim, *args, **kwargs).view(cls)
         return res
 
-    def diag(self, **kwargs):
+    def diag(self, **kwargs: Any) -> "Tensor":
         """Return the diagonal of a given matrix, or a diagonal matrix with the
         given values on the diagonal.
         """
@@ -146,12 +154,12 @@ class Tensor(TensorCommon, np.ndarray):  # pyright: ignore[reportIncompatibleMet
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # To and from numpy arrays
 
-    def to_ndarray(self, **kwargs):
+    def to_ndarray(self, **kwargs: Any) -> np.ndarray:
         """Return the corresponding NumPy array, as a copy."""
         return np.asarray(self.copy())
 
     @classmethod
-    def from_ndarray(cls, a, **kwargs):
+    def from_ndarray(cls, a: ArrayLike, **kwargs: Any) -> Self:
         """Given an NumPy array, return the corresponding `Tensor` instance."""
         if isinstance(a, np.ndarray):
             res = a.copy().view(cls)
@@ -162,91 +170,93 @@ class Tensor(TensorCommon, np.ndarray):  # pyright: ignore[reportIncompatibleMet
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Methods for slicing, setting and getting elements
 
-    def fill(self, value):
+    def fill(self, value: Any) -> None:
         """Fill the tensor with a scalar value."""
         return np.ndarray.fill(self, value)
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Operator methods
 
-    def conjugate(self):
+    def conjugate(self) -> Self:
         """Return the complex conjugate."""
-        return np.ndarray.conj(self)
+        # numpy's stubs type these results as ndarray; at runtime numpy
+        # preserves the subclass, so they are Tensors (the casts are no-ops).
+        return cast(Self, np.ndarray.conj(self))
 
-    def abs(self):
+    def abs(self) -> Self:
         """Return the element-wise absolute value."""
-        return np.ndarray.__abs__(self)
+        return cast(Self, np.ndarray.__abs__(self))
 
-    def any(self, *args, **kwargs):
+    def any(self, *args: Any, **kwargs: Any) -> Any:
         """Return whether any elements are True.
 
         See `numpy.ndarray.any` for details.
         """
         return np.ndarray.any(self, *args, **kwargs)
 
-    def all(self, *args, **kwargs):
+    def all(self, *args: Any, **kwargs: Any) -> Any:
         """Return whether all elements are True.
 
         See `numpy.ndarray.all` for details.
         """
         return np.ndarray.all(self, *args, **kwargs)
 
-    def allclose(self, other, *args, **kwargs):
+    def allclose(self, other: Any, *args: Any, **kwargs: Any) -> bool:
         """Return whether self and other are nearly element-wise equal.
 
         See `numpy.allclose` for details.
         """
         return np.allclose(self, other, *args, **kwargs)
 
-    def log(self):
+    def log(self) -> Self:
         """Return the element-wise natural logarithm."""
-        return np.log(self)
+        return cast(Self, np.log(self))
 
-    def exp(self):
+    def exp(self) -> Self:
         """Return the element-wise exponential."""
-        return np.exp(self)
+        return cast(Self, np.exp(self))
 
-    def sqrt(self):
+    def sqrt(self) -> Self:
         """Return the element-wise square root."""
-        return np.sqrt(self)
+        return cast(Self, np.sqrt(self))
 
-    def average(self):
+    def average(self) -> Any:
         """Return the element-wise average."""
         return np.average(self)
 
-    def sign(self):
+    def sign(self) -> Self:
         """Return the element-wise sign."""
-        return np.sign(self)
+        return cast(Self, np.sign(self))
 
     # A method, not a property as in ndarray, to match AbelianTensor.real().
-    def real(self):  # pyright: ignore[reportIncompatibleMethodOverride]
+    def real(self) -> Self:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Return the real part."""
         return super().real  # pyright: ignore[reportAttributeAccessIssue]
 
     # A method, not a property as in ndarray, to match AbelianTensor.imag().
-    def imag(self):  # pyright: ignore[reportIncompatibleMethodOverride]
+    def imag(self) -> Self:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Return the imaginary part."""
         return super().imag  # pyright: ignore[reportAttributeAccessIssue]
 
     # Takes no axis argument and returns a scalar, like AbelianTensor.sum().
-    def sum(self):  # pyright: ignore[reportIncompatibleMethodOverride]
+    def sum(self) -> Any:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Return the element-wise sum."""
         return super().sum().value()
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Miscellaneous
 
-    def isscalar(self):
+    def isscalar(self) -> bool:
         """Return whether this `Tensor` is a scalar."""
         return not bool(self.shape)
 
-    def compatible_indices(self, other, i, j):
+    def compatible_indices(self, other: TensorCommon, i: int, j: int) -> bool:
         """Return True if index `i` of `self` and index `j` of `other` are of
         the same dimension.
         """
         return self.shape[i] == other.shape[j]
 
-    def flip_dir(self, axis):
+    def flip_dir(self, axis: int) -> Self:
         """A no-op, that returns a view.
 
         The corresponding method of `AbelianTensor` flips the direction of an
@@ -255,14 +265,14 @@ class Tensor(TensorCommon, np.ndarray):  # pyright: ignore[reportIncompatibleMet
         res = self.view()
         return res
 
-    def expand_dims(self, axis, direction=1):
+    def expand_dims(self, axis: int, direction: int = 1) -> Self:
         """Add to `self` a new singleton index, at position `axis`."""
         res = np.expand_dims(self, axis)
         if not isinstance(res, Tensor):
             res = type(self).from_ndarray(res)
-        return res
+        return cast(Self, res)
 
-    def value(self):
+    def value(self) -> Any:
         """For a scalar tensor, return the scalar. For a non-scalar one, raise
         a `ValueError`.
         """
@@ -274,17 +284,17 @@ class Tensor(TensorCommon, np.ndarray):  # pyright: ignore[reportIncompatibleMet
     @classmethod
     def check_form_match(
         cls,
-        tensor1=None,
-        tensor2=None,
-        qhape1=None,
-        shape1=None,
-        dirs1=None,
-        qhape2=None,
-        shape2=None,
-        dirs2=None,
-        qodulus=None,
-        symmetry=None,
-    ):
+        tensor1: TensorCommon | None = None,
+        tensor2: TensorCommon | None = None,
+        qhape1: Any = None,
+        shape1: Any = None,
+        dirs1: Any = None,
+        qhape2: Any = None,
+        shape2: Any = None,
+        dirs2: Any = None,
+        qodulus: Any = None,
+        symmetry: Any = None,
+    ) -> bool:
         """Check that the given two tensors have the same form in the sense
         that, i.e. that their indices have the same dimensions. Instead of
         giving two tensors, two shapes can also be given.
@@ -298,14 +308,14 @@ class Tensor(TensorCommon, np.ndarray):  # pyright: ignore[reportIncompatibleMet
     @classmethod
     def _find_trunc_dim(
         cls,
-        S,
-        chis,
-        eps=0,
-        break_degenerate=False,
-        degeneracy_eps=1e-6,
-        trunc_err_func=None,
-        norm_sq=None,
-    ):
+        S: np.ndarray,
+        chis: Sequence[int],
+        eps: float = 0,
+        break_degenerate: bool = False,
+        degeneracy_eps: float = 1e-6,
+        trunc_err_func: Callable[..., float] | None = None,
+        norm_sq: float | None = None,
+    ) -> tuple[int, float]:
         """A utility function that is used by eigenvalue and singular value
         decompositions.
 
@@ -357,9 +367,38 @@ class Tensor(TensorCommon, np.ndarray):  # pyright: ignore[reportIncompatibleMet
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # The meat: actual tensor operations
 
+    @overload
     def join_indices(
-        self, *inds, return_transposed_shape_data=False, **kwargs
-    ):
+        self,
+        *inds: Indices,
+        return_transposed_shape_data: Literal[False] = False,
+        **kwargs: Any,
+    ) -> Self: ...
+
+    @overload
+    def join_indices(
+        self,
+        *inds: Indices,
+        return_transposed_shape_data: Literal[True],
+        **kwargs: Any,
+    ) -> tuple[Self, tuple[int, ...], None, None]: ...
+
+    @overload
+    def join_indices(
+        self,
+        *inds: Indices,
+        return_transposed_shape_data: bool,
+        **kwargs: Any,
+    ) -> Self | tuple[Self, tuple[int, ...], None, None]: ...
+
+    # The overloads above give the public types; the body reshapes inds
+    # through several forms, so the implementation takes Any.
+    def join_indices(
+        self,
+        *inds: Any,
+        return_transposed_shape_data: bool = False,
+        **kwargs: Any,
+    ) -> Any:
         """Join indices together in the spirit of reshape.
 
         `inds` is either a iterable of indices, in which case they are joined,
@@ -427,7 +466,13 @@ class Tensor(TensorCommon, np.ndarray):  # pyright: ignore[reportIncompatibleMet
         else:
             return self
 
-    def split_indices(self, indices, dims, qims=None, **kwargs):
+    def split_indices(
+        self,
+        indices: Indices,
+        dims: Sequence[Any],
+        qims: Any = None,
+        **kwargs: Any,
+    ) -> Self:
         """Splits indices in the spirit of reshape.
 
         `indices` is an iterable of indices to be split. `dims` is an iterable
@@ -478,9 +523,11 @@ class Tensor(TensorCommon, np.ndarray):  # pyright: ignore[reportIncompatibleMet
 
         # Reshape
         res = self.reshape(new_shape)
-        return res
+        return cast(Self, res)
 
-    def multiply_diag(self, diag_vect, axis, *args, **kwargs):
+    def multiply_diag(
+        self, diag_vect: "Tensor", axis: int, *args: Any, **kwargs: Any
+    ) -> Self:
         """Multiply by a diagonal matrix on one axis.
 
         The result of `multiply_diag` is the same as
@@ -500,7 +547,7 @@ class Tensor(TensorCommon, np.ndarray):  # pyright: ignore[reportIncompatibleMet
         return res
 
     # Returns a Tensor and checks compatibility, like AbelianTensor.trace().
-    def trace(self, axis1=0, axis2=1):  # pyright: ignore[reportIncompatibleMethodOverride]
+    def trace(self, axis1: int = 0, axis2: int = 1) -> Self:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Return the trace over indices `axis1` and `axis2`."""
         # Require the tensor to be square with respect to axis1 and axis2, to
         # follow as closely as possible what AbelianTensor does.
@@ -514,40 +561,40 @@ class Tensor(TensorCommon, np.ndarray):  # pyright: ignore[reportIncompatibleMet
 
     # tensordot-style signature, unlike ndarray.dot; the parameter is named B
     # (unlike TensorCommon.dot's `other`) for backward compatibility.
-    def dot(self, B, indices):  # pyright: ignore[reportIncompatibleMethodOverride]
+    def dot(self, B: TensorCommon, indices: Sequence[Indices]) -> Self:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Dot product of tensors.
 
         See `numpy.tensordot` on how to use this, the interface is exactly the
         same, except that this one is a method, not a function. The original
         tensors are not modified.
         """
-        result = np.tensordot(self, B, indices)
+        result = np.tensordot(self, cast(Any, B), cast(Any, indices))
         if not isinstance(result, Tensor):
             result = type(self).from_ndarray(result)
-        return result
+        return cast(Self, result)
 
     # This one actually isn't necessary TensorCommon covers this, but the
     # implementation is just some much simpler using np.tensordot.
-    def matrix_dot(self, B):
+    def matrix_dot(self, B: "Tensor") -> Self:
         """Take the dot product of two tensors of order < 3 (i.e. vectors or
         matrices).
         """
         result = np.dot(self, B)
         if not isinstance(result, TensorCommon):
             result = type(self).from_ndarray(result)
-        return result
+        return cast(Self, result)
 
     def matrix_eig(
         self,
-        chis=None,
-        eps=0,
-        print_errors="deprecated",
-        hermitian=False,
-        break_degenerate=False,
-        degeneracy_eps=1e-6,
-        sparse=False,
-        trunc_err_func=None,
-    ):
+        chis: Any = None,
+        eps: float = 0,
+        print_errors: str = "deprecated",
+        hermitian: bool = False,
+        break_degenerate: bool = False,
+        degeneracy_eps: float = 1e-6,
+        sparse: bool = False,
+        trunc_err_func: Callable[..., float] | None = None,
+    ) -> tuple[Self, Self, float]:
         """Find eigenvalues and eigenvectors of a matrix.
 
         The input must be a square matrix.
@@ -609,18 +656,18 @@ class Tensor(TensorCommon, np.ndarray):  # pyright: ignore[reportIncompatibleMet
             S = type(self).from_ndarray(S)
         if not isinstance(U, TensorCommon):
             U = type(self).from_ndarray(U)
-        return S, U, rel_err
+        return cast(Self, S), cast(Self, U), rel_err
 
     def matrix_svd(
         self,
-        chis=None,
-        eps=0,
-        print_errors="deprecated",
-        break_degenerate=False,
-        degeneracy_eps=1e-6,
-        sparse=False,
-        trunc_err_func=None,
-    ):
+        chis: Any = None,
+        eps: float = 0,
+        print_errors: str = "deprecated",
+        break_degenerate: bool = False,
+        degeneracy_eps: float = 1e-6,
+        sparse: bool = False,
+        trunc_err_func: Callable[..., float] | None = None,
+    ) -> tuple[Self, Self, Self, float]:
         """Singular value decompose a matrix.
 
         The optional argument `chis` is a list of bond dimensions. The SVD is
@@ -691,4 +738,4 @@ class Tensor(TensorCommon, np.ndarray):  # pyright: ignore[reportIncompatibleMet
             U = type(self).from_ndarray(U)
         if not isinstance(V, TensorCommon):
             V = type(self).from_ndarray(V)
-        return U, S, V, rel_err
+        return cast(Self, U), cast(Self, S), cast(Self, V), rel_err
