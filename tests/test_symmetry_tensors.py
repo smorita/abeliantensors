@@ -290,3 +290,32 @@ def test_subclass_without_symmetry_is_not_fixed():
     assert MyTensor([[1]], qhape=[[0]], dirs=[1]).symmetry == U1Group()
     T = MyTensor([[1]], qhape=[[0]], dirs=[1], symmetry=CyclicGroup(3))
     assert T.symmetry == CyclicGroup(3)
+
+
+def test_comparison_operators_stay_elementwise():
+    """__eq__/__ne__ are declared for type checkers only; at runtime they
+    must still compare element-wise and return tensors.
+    """
+    T = TensorZ2.random([[1, 1], [1, 1]], dirs=[1, -1])
+    eq = T == T
+    ne = T != T
+    assert isinstance(eq, TensorZ2)
+    assert isinstance(ne, TensorZ2)
+    assert eq.all()
+    assert not ne.any()
+    assert AbelianTensor.__hash__ is None
+
+
+def test_attribute_annotations_are_not_class_attributes():
+    for name in (
+        "shape",
+        "qhape",
+        "dirs",
+        "charge",
+        "sects",
+        "defval",
+        "invar",
+        "dtype",
+    ):
+        assert name not in vars(AbelianTensor)
+    assert "symmetry" in vars(AbelianTensor)

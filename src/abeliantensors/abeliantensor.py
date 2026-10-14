@@ -4,27 +4,35 @@ import itertools as itt
 import operator as opr
 import os
 import warnings
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable, Sequence
 from copy import deepcopy
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Concatenate, Literal, Self, TypeVar
 
 import numpy as np
 import scipy.sparse.linalg as spsla
 from numpy.typing import DTypeLike
 
+from ._typing import Dim, Qim, Qnum
 from .symmetry import AbelianGroup, CyclicGroup, U1Group
 from .tensorcommon import TensorCommon
 
 # Some utility functions for generating methods of AbelianTensor efficiently.
 
 
-def _generate_binary_deferer(op_func):
+# The tensor type that a generated operator method is bound to, so that e.g.
+# TensorZ2 + TensorZ2 is inferred as TensorZ2.
+_AT = TypeVar("_AT", bound="AbelianTensor")
+
+
+def _generate_binary_deferer(
+    op_func: Callable[..., Any],
+) -> Callable[[_AT, Any], _AT]:
     """From a binary operator, generate a method that applies that operator
     element-wise on two tensors. See AbelianTensor._defer_binary_elementwise
     for more.
     """
 
-    def deferer(self, B, *args, **kwargs):
+    def deferer(self: _AT, B: Any, *args: Any, **kwargs: Any) -> _AT:
         return type(self)._defer_binary_elementwise(
             self, B, op_func, *args, **kwargs
         )
@@ -32,13 +40,15 @@ def _generate_binary_deferer(op_func):
     return deferer
 
 
-def _generate_unary_deferer(op_func):
+def _generate_unary_deferer(
+    op_func: Callable[..., Any],
+) -> Callable[Concatenate[_AT, ...], _AT]:
     """From a unary operator, generate a method that applies that operator
     element-wise on a tensor. See AbelianTensor._defer_unary_elementwise for
     more.
     """
 
-    def deferer(self, *args, **kwargs):
+    def deferer(self: _AT, *args: Any, **kwargs: Any) -> _AT:
         return type(self)._defer_unary_elementwise(
             self, op_func, *args, **kwargs
         )
@@ -46,12 +56,12 @@ def _generate_unary_deferer(op_func):
     return deferer
 
 
-def _arg_swapper(op):
+def _arg_swapper(op: Callable[..., Any]) -> Callable[..., Any]:
     """Given a binary operator function, return a function that applies it
     but with argument order swapped for the first two arguments.
     """
 
-    def op_swapped(a, b, *args, **kwargs):
+    def op_swapped(a: Any, b: Any, *args: Any, **kwargs: Any) -> Any:
         return op(b, a, *args, **kwargs)
 
     return op_swapped
@@ -65,7 +75,7 @@ _UNSET = object()
 _PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__)) + os.sep
 
 
-def _warn_qodulus_deprecated():
+def _warn_qodulus_deprecated() -> None:
     warnings.warn(
         "The `qodulus` argument is deprecated. Use "
         "`symmetry=CyclicGroup(n)` or `symmetry=U1Group()` instead.",
@@ -74,7 +84,11 @@ def _warn_qodulus_deprecated():
     )
 
 
-def _resolve_symmetry(cls, symmetry, qodulus):
+def _resolve_symmetry(
+    cls: "type[AbelianTensor]",
+    symmetry: AbelianGroup[Any] | None,
+    qodulus: Any,
+) -> AbelianGroup[Any]:
     """Return the `AbelianGroup` that a new tensor of class `cls` should have.
 
     `qodulus` is the deprecated way of giving the symmetry: an integer N means
@@ -99,7 +113,7 @@ def _resolve_symmetry(cls, symmetry, qodulus):
     return symmetry
 
 
-def _fixed_symmetry(cls):
+def _fixed_symmetry(cls: "type[AbelianTensor]") -> AbelianGroup[Any] | None:
     """Return the symmetry that `cls` fixes, or None if it does not fix one.
 
     A class fixes its symmetry if it, or a parent class below `AbelianTensor`,
@@ -113,7 +127,7 @@ def _fixed_symmetry(cls):
     return None
 
 
-def _check_same_symmetry(a, b):
+def _check_same_symmetry(a: "AbelianTensor", b: Any) -> None:
     """Raise ValueError if tensors `a` and `b` have different symmetries.
 
     This is a real exception rather than an assert, so that it is not
@@ -127,7 +141,12 @@ def _check_same_symmetry(a, b):
         )
 
 
-def _check_form_data(cls, shape, qhape, dirs):
+def _check_form_data(
+    cls: "type[AbelianTensor]",
+    shape: Sequence[Any],
+    qhape: Sequence[Any],
+    dirs: Sequence[int],
+) -> None:
     """Raise ValueError if `shape`, `qhape` and `dirs` do not fit together."""
     if not cls.check_qhape_shape_match(qhape, shape):
         raise ValueError(
@@ -141,7 +160,7 @@ def _check_form_data(cls, shape, qhape, dirs):
         )
 
 
-def _require_invariant(tensor, operation):
+def _require_invariant(tensor: "AbelianTensor", operation: str) -> None:
     """Raise ValueError unless `tensor` is invariant with ``defval == 0``,
     as `operation` requires.
     """
@@ -223,7 +242,17 @@ class AbelianTensor(TensorCommon):
     # The symmetry group. AbelianTensor itself defaults to U(1) and accepts any
     # group per instance; subclasses such as TensorZ2 fix it by setting this
     # class attribute (see _fixed_symmetry).
-    symmetry: AbelianGroup = U1Group()
+    symmetry: AbelianGroup[Any] = U1Group()
+
+    # Instance attributes, set in __init__ (see the class docstring).
+    shape: list[Dim]
+    qhape: list[Qim]
+    dirs: list[int]
+    charge: Qnum
+    sects: dict[tuple[Qnum, ...], np.ndarray]
+    defval: Any
+    invar: bool
+    dtype: DTypeLike
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -477,6 +506,8 @@ class AbelianTensor(TensorCommon):
         charge = symmetry.normalize(charge)
         shape = list(map(list, shape))
         qhape = [[symmetry.normalize(q) for q in qim] for qim in qhape]
+        if dirs is None:
+            raise TypeError(f"{cls.__name__} requires dirs.")
         _check_form_data(cls, shape, qhape, dirs)
 
         # We use a fancy way of passing optional arguments to __init__ to avoid
@@ -649,8 +680,16 @@ class AbelianTensor(TensorCommon):
     __rxor__ = _generate_binary_deferer(_arg_swapper(opr.xor))
     __ror__ = _generate_binary_deferer(_arg_swapper(opr.or_))
 
-    __eq__ = _generate_binary_deferer(opr.eq)
-    __ne__ = _generate_binary_deferer(opr.ne)
+    if TYPE_CHECKING:
+        # Element-wise comparisons return tensors, unlike object.__eq__ and
+        # object.__ne__ (as in numpy's type stubs).
+        def __eq__(self, other: object) -> Self: ...  # pyright: ignore[reportIncompatibleMethodOverride]
+
+        def __ne__(self, other: object) -> Self: ...  # pyright: ignore[reportIncompatibleMethodOverride]
+
+    else:
+        __eq__ = _generate_binary_deferer(opr.eq)
+        __ne__ = _generate_binary_deferer(opr.ne)
     __lt__ = _generate_binary_deferer(opr.lt)
     __le__ = _generate_binary_deferer(opr.le)
     __gt__ = _generate_binary_deferer(opr.gt)
@@ -697,7 +736,14 @@ class AbelianTensor(TensorCommon):
         return res
 
     conjugate = conj
-    sqrt = _generate_unary_deferer(np.sqrt)
+    if TYPE_CHECKING:
+        # Declared explicitly because TensorCommon declares sqrt (returning
+        # Any) for its own type checking, and that declaration would win over
+        # the generated method below.
+        def sqrt(self, *args: Any, **kwargs: Any) -> Self: ...
+
+    else:
+        sqrt = _generate_unary_deferer(np.sqrt)
     sign = _generate_unary_deferer(np.sign)
     log = _generate_unary_deferer(np.log)
     exp = _generate_unary_deferer(np.exp)
@@ -853,8 +899,8 @@ class AbelianTensor(TensorCommon):
         # Form checks done, move on to comparing blocks.
         all_keys = set().union(self.sects, B.sects)
         for k in all_keys:
-            a = self.sects.get(k, self.defval)
-            b = B.sects.get(k, B.defval)
+            a = self.sects[k] if k in self.sects else self.defval
+            b = B.sects[k] if k in B.sects else B.defval
             if not np.allclose(a, b):
                 return False
         if self.is_full():
