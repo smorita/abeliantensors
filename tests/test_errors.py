@@ -265,3 +265,30 @@ def test_join_indices_does_not_mutate_dirs_argument():
     dirs = [1, 1]
     T.join_indices([0, 1], [2], dirs=dirs)
     assert dirs == [1, 1]
+
+
+def test_tensor_type_checking_declarations_are_not_runtime_methods():
+    """Tensor's operators, conj, transpose, ... are declared for type
+    checkers only; at runtime they must still come from np.ndarray.
+    """
+    for name in (
+        "__add__",
+        "__radd__",
+        "__iadd__",
+        "__sub__",
+        "__eq__",
+        "__neg__",
+        "conj",
+        "transpose",
+        "swapaxes",
+        "copy",
+        "astype",
+    ):
+        assert name not in vars(Tensor), name
+        assert getattr(Tensor, name) is getattr(np.ndarray, name), name
+    D = Tensor.random([2, 2])
+    assert isinstance(D + D, Tensor)
+    assert isinstance(D == D, Tensor)
+    q, r = divmod(D, 2)
+    assert isinstance(q, Tensor)
+    assert isinstance(r, Tensor)
