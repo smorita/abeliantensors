@@ -147,6 +147,7 @@ Indices = int | Sequence[int]      # dot / svd などに渡すインデックス
 
 **`Tensor`(`np.ndarray` のサブクラス)**
 
+- 演算子(2026-10-14 追記、B-4 で実施): `Tensor` の演算子は `np.ndarray` から受け継ぐので、NumPy の型定義のままだと `Tensor + Tensor` が `ndarray` と推論され、`(D + D).svd(0, 1)` のように結果に対してこのライブラリのメソッドを呼ぶコードが型エラーになる。`Tensor` は `TensorZ2` などと入れ替えて使うためのクラスなので、算術・ビット演算・比較・単項の演算子と、その右側版・累算代入版を `if TYPE_CHECKING:` の中で `Self` を返すと宣言する。NumPy の型定義と食い違うもの(`__sub__`、`__truediv__` など 8 個)は理由付きで無視する。`__divmod__` / `__rdivmod__` は実行時に配列のタプルを返すので宣言しない(NumPy の型定義のまま)。実行時の動作は変えない。
 - 公開 API は変えない。NumPy の型定義と食い違う上書き(`real`、`imag`、`sum`、`dot` など)は、`# pyright: ignore[ルール名]` に理由を付けて無視し、本書の「無視した箇所」に記録する。
 
 **`py.typed`(B-1)**
