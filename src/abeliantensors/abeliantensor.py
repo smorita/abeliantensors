@@ -254,7 +254,7 @@ class AbelianTensor(TensorCommon):
     invar: bool
     dtype: DTypeLike
 
-    def __init_subclass__(cls, **kwargs):
+    def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
         # Support subclasses written for the old API, which fixed the symmetry
         # with a class attribute `qodulus = N` (or None for U(1)).
@@ -272,7 +272,7 @@ class AbelianTensor(TensorCommon):
             )
 
     @property
-    def qodulus(self):
+    def qodulus(self) -> int | None:
         """Deprecated. The order N of a `CyclicGroup` symmetry, or None for
         `U1Group`.
         """
@@ -292,17 +292,17 @@ class AbelianTensor(TensorCommon):
 
     def __init__(
         self,
-        shape,
-        qhape=None,
-        qodulus=_UNSET,
-        sects=None,
-        dirs=None,
+        shape: Sequence[Sequence[int]],
+        qhape: Sequence[Sequence[Qnum]] | None = None,
+        qodulus: Any = _UNSET,
+        sects: dict[tuple[Qnum, ...], np.ndarray] | None = None,
+        dirs: list[int] | None = None,
         dtype: DTypeLike = np.float64,
-        defval=0,
-        charge=None,
-        invar=True,
-        symmetry=None,
-    ):
+        defval: Any = 0,
+        charge: Qnum | None = None,
+        invar: bool = True,
+        symmetry: AbelianGroup[Any] | None = None,
+    ) -> None:
         """Initialize an AbelianTensor.
 
         Although `qhape` is a keyword argument to conform to the interface of
@@ -319,13 +319,13 @@ class AbelianTensor(TensorCommon):
                 stacklevel=2,
             )
         symmetry = _resolve_symmetry(type(self), symmetry, qodulus)
-        if charge is None:
-            charge = symmetry.identity
-        charge = symmetry.normalize(charge)
+        normalized_charge: Qnum = symmetry.normalize(
+            symmetry.identity if charge is None else charge
+        )
         shape = list(map(list, shape))
         qhape = [[symmetry.normalize(q) for q in qim] for qim in qhape]
         _check_form_data(type(self), shape, qhape, dirs)
-        if invar and charge != symmetry.identity and defval != 0:
+        if invar and normalized_charge != symmetry.identity and defval != 0:
             raise ValueError(
                 "An invariant tensor with a non-identity charge must have "
                 f"defval 0, got {defval}."
@@ -335,7 +335,7 @@ class AbelianTensor(TensorCommon):
 
         self.defval = defval
         self.invar = invar
-        self.charge = charge
+        self.charge = normalized_charge
         self.shape = list(map(list, shape))
         self.dirs = dirs
         self.dtype = dtype
@@ -349,7 +349,7 @@ class AbelianTensor(TensorCommon):
     copy = deepcopy
     __copy__ = copy
 
-    def view(self):
+    def view(self) -> Self:
         """Return a view of this tensor.
 
         A view is otherwise independent but identical to the original, but
@@ -362,7 +362,7 @@ class AbelianTensor(TensorCommon):
         view.sects = self.sects.copy()
         return view
 
-    def diag(self):
+    def diag(self) -> Self:
         """Either map a square matrix to a vector of its diagonals or a vector
         to diagonal square matrix.
 
@@ -443,12 +443,12 @@ class AbelianTensor(TensorCommon):
     @classmethod
     def eye(
         cls,
-        dim,
-        qim=None,
-        qodulus=_UNSET,
+        dim: Sequence[int],
+        qim: Sequence[Qnum] | None = None,
+        qodulus: Any = _UNSET,
         dtype: DTypeLike = np.float64,
-        symmetry=None,
-    ):
+        symmetry: AbelianGroup[Any] | None = None,
+    ) -> Self:
         """Return an identity tensor of ``shape = [dim, dim]``, ``qhape = [qim,
         qim]`` and ``dirs = [1, -1]``.
         """
@@ -480,17 +480,17 @@ class AbelianTensor(TensorCommon):
     @classmethod
     def initialize_with(
         cls,
-        numpy_func,
-        shape,
-        *args,
-        qhape=None,
-        qodulus=_UNSET,
-        dirs=None,
-        invar=True,
-        charge=None,
-        symmetry=None,
-        **kwargs,
-    ):
+        numpy_func: Callable[..., Any],
+        shape: Sequence[Sequence[int]],
+        *args: Any,
+        qhape: Sequence[Sequence[Qnum]] | None = None,
+        qodulus: Any = _UNSET,
+        dirs: list[int] | None = None,
+        invar: bool = True,
+        charge: Qnum | None = None,
+        symmetry: AbelianGroup[Any] | None = None,
+        **kwargs: Any,
+    ) -> Self:
         """Create a tensor initialized with a given numpy function.
 
         `initialize_with` will be called with different `numpy_funcs` to create
@@ -540,7 +540,7 @@ class AbelianTensor(TensorCommon):
                 res.defval = numpy_func((), *args, **kwargs)
         return res
 
-    def empty_like(self):
+    def empty_like(self) -> Self:
         """Initialize a tensor that is like a copy of this one, but with an
         empty sects.
         """
@@ -559,7 +559,7 @@ class AbelianTensor(TensorCommon):
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Methods for slicing, setting and getting elements
 
-    def fill(self, value):
+    def fill(self, value: Any) -> None:
         """Set all the elements of the tensor to be `value`.
 
         This really means all, not just the ones in allowed blocks.
@@ -568,7 +568,7 @@ class AbelianTensor(TensorCommon):
         for v in self.sects.values():
             v.fill(value)
 
-    def __getitem__(self, k):
+    def __getitem__(self, k: tuple[Qnum, ...]) -> np.ndarray:
         """Return the sector `k` of this tensor.
 
         When ``self[k]`` is called, then first ``self.sects[k]`` is checked. If
@@ -602,23 +602,23 @@ class AbelianTensor(TensorCommon):
             self[k] = block
             return block
 
-    def value(self):
+    def value(self) -> Any:
         """For a scalar tensor, return the scalar."""
         if not self.isscalar():
             raise ValueError("value called on a non-scalar tensor.")
         else:
             return self.defval
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: tuple[Qnum, ...], value: np.ndarray) -> None:
         return self.sects.__setitem__(key, value)
 
-    def __delitem__(self, key):
+    def __delitem__(self, key: tuple[Qnum, ...]) -> None:
         return self.sects.__delitem__(key)
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Operator methods
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         r = (
             "%r(%r, qhape=%r, symmetry=%r, sects=%r, dtype=%r, defval=%r, "
             "invar=%r, charge=%r, dirs=%r"
@@ -637,7 +637,7 @@ class AbelianTensor(TensorCommon):
         )
         return r
 
-    def __str__(self, *args, **kwargs):
+    def __str__(self, *args: Any, **kwargs: Any) -> str:
         r = (
             f"{str(type(self))} object:\n"
             f"shape = {self.shape},\n"
@@ -700,7 +700,7 @@ class AbelianTensor(TensorCommon):
     __abs__ = _generate_unary_deferer(abs)
     __invert__ = _generate_unary_deferer(opr.invert)
 
-    def conj(self):
+    def conj(self) -> Self:
         """Return a new tensor that is the complex conjugate of this one, with
         the directions of all the indices flipped and the charge of negated.
         """
@@ -716,7 +716,7 @@ class AbelianTensor(TensorCommon):
             "no", "equiv", "safe", "same_kind", "unsafe"
         ] = "unsafe",
         copy: bool = True,
-    ):
+    ) -> Self:
         """Change the dtype of the tensor.
 
         By default creates a copy, but works in place if ``copy=False``.
@@ -749,7 +749,9 @@ class AbelianTensor(TensorCommon):
     exp = _generate_unary_deferer(np.exp)
     abs = __abs__
 
-    def _defer_unary_elementwise(self, op_func, *args, **kwargs):
+    def _defer_unary_elementwise(
+        self, op_func: Callable[..., Any], *args: Any, **kwargs: Any
+    ) -> Self:
         """Produce a new tensor that is like this one, but all the blocks `v`
         have been acted on with ``op_func(v, *args, **kwargs)``, as has the
         `defval`.
@@ -769,7 +771,9 @@ class AbelianTensor(TensorCommon):
             res.sects[k] = res_block
         return res
 
-    def _defer_binary_elementwise(self, B, op_func, *args, **kwargs):
+    def _defer_binary_elementwise(
+        self, B: Any, op_func: Callable[..., Any], *args: Any, **kwargs: Any
+    ) -> Self:
         """If both `self` and `B` are `AbelianTensors`, then their blocks and
         `defvals` are operated on pair-wise with ``op_func(_, _, *args,
         **kwargs)``.
@@ -853,7 +857,7 @@ class AbelianTensor(TensorCommon):
             res.invar = False
         return res
 
-    def any(self):
+    def any(self) -> bool | np.bool_:
         """Check whether any of the elements of the tensor are True."""
         for v in self.sects.values():
             if np.any(v):
@@ -863,7 +867,7 @@ class AbelianTensor(TensorCommon):
         else:
             return np.any(self.defval)
 
-    def all(self):
+    def all(self) -> bool | np.bool_:
         """Check whether all of the elements of the tensor are True."""
         for v in self.sects.values():
             if not np.all(v):
@@ -873,7 +877,9 @@ class AbelianTensor(TensorCommon):
         else:
             return np.all(self.defval)
 
-    def allclose(self, B, rtol=1e-05, atol=1e-08):
+    def allclose(
+        self, B: "AbelianTensor", rtol: float = 1e-05, atol: float = 1e-08
+    ) -> bool:
         """Check whether all of the elements of the two tensors are close to
         each other.
 
@@ -908,7 +914,7 @@ class AbelianTensor(TensorCommon):
         else:
             return np.allclose(self.defval, B.defval)
 
-    def max(self):
+    def max(self) -> Any:
         """Return the maximum element."""
         if 0 in type(self).flatten_shape(self.shape):
             raise ValueError("zero-size array has no maximum")
@@ -925,7 +931,7 @@ class AbelianTensor(TensorCommon):
                 pass
         return m
 
-    def min(self):
+    def min(self) -> Any:
         """Return the minimum element."""
         if 0 in type(self).flatten_shape(self.shape):
             raise ValueError("zero-size array has no minimum")
@@ -942,7 +948,7 @@ class AbelianTensor(TensorCommon):
                 pass
         return m
 
-    def average(self):
+    def average(self) -> Any:
         """Return the average of all elements."""
         s = self.sum()
         flat_shape = self.flatten_shape(self.shape)
@@ -950,19 +956,19 @@ class AbelianTensor(TensorCommon):
         average = s / num_of_elements
         return average
 
-    def real(self):
+    def real(self) -> Self:
         """Return the real part."""
         res = self._defer_unary_elementwise(np.real)
         res.dtype = np.float64
         return res
 
-    def imag(self):
+    def imag(self) -> Self:
         """Return the imaginary part."""
         res = self._defer_unary_elementwise(np.imag)
         res.dtype = np.float64
         return res
 
-    def sum(self):
+    def sum(self) -> Any:
         """Return the sum of all elements."""
         if self.isscalar():
             s = self.defval
@@ -975,14 +981,14 @@ class AbelianTensor(TensorCommon):
                 s += np.sum(v)
         return s
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Return the total dimension of the first index of this tensor.
 
         This mimics the behavior of `len` on numpy ndarrays.
         """
         return self.flatten_dim(self.shape[0])
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         if self.isscalar():
             return bool(self.defval)
         else:
@@ -994,7 +1000,7 @@ class AbelianTensor(TensorCommon):
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # To and from numpy arrays
 
-    def to_ndarray(self):
+    def to_ndarray(self) -> np.ndarray:
         """Return a corresponding numpy array.
 
         The order of the blocks in the result is such that along every index
@@ -1042,15 +1048,15 @@ class AbelianTensor(TensorCommon):
     @classmethod
     def from_ndarray(
         cls,
-        a,
-        shape=None,
-        qhape=None,
-        dirs=None,
-        qodulus=_UNSET,
-        invar=True,
-        charge=None,
-        symmetry=None,
-    ):
+        a: np.ndarray,
+        shape: Sequence[Sequence[int]] | None = None,
+        qhape: Sequence[Sequence[Qnum]] | None = None,
+        dirs: list[int] | None = None,
+        qodulus: Any = _UNSET,
+        invar: bool = True,
+        charge: Qnum | None = None,
+        symmetry: AbelianGroup[Any] | None = None,
+    ) -> Self:
         """Build an `AbelianTensor` out of a given NumPy array, using the
         provided form data.
 
@@ -1119,11 +1125,11 @@ class AbelianTensor(TensorCommon):
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Miscellaneous
 
-    def isscalar(self):
+    def isscalar(self) -> bool:
         """Return True is this tensor is scalar, False otherwise."""
         return not bool(self.shape)
 
-    def is_valid_key(self, key):
+    def is_valid_key(self, key: Sequence[Qnum]) -> bool:
         """Return True if `key` is a valid block allowed by symmetry or
         `self.invar` is False. Otherwise False.
         """
@@ -1134,7 +1140,9 @@ class AbelianTensor(TensorCommon):
         g = self.symmetry
         return g.sum(map(g.signed, key, self.dirs)) == self.charge
 
-    def compatible_indices(self, other, i, j):
+    def compatible_indices(
+        self, other: "AbelianTensor", i: int, j: int
+    ) -> bool:
         """Return True if index `i` of `self` may be contracted with index `j`
         of `other`, False otherwise.
 
@@ -1158,7 +1166,7 @@ class AbelianTensor(TensorCommon):
         res = o_qimdim == s_qimdim
         return res
 
-    def flip_dir(self, axis):
+    def flip_dir(self, axis: int) -> Self:
         """Flip the direction of the given `axis` of `self`.
 
         The operation is not in-place, but a view is returned. The quantum
@@ -1185,7 +1193,7 @@ class AbelianTensor(TensorCommon):
             res[kf] = vf
         return res
 
-    def expand_dims(self, axis, direction=1):
+    def expand_dims(self, axis: int, direction: int = 1) -> Self:
         """Return a view of `self` that has an additional index at the position
         `axis`.
 
@@ -1209,7 +1217,11 @@ class AbelianTensor(TensorCommon):
         return res
 
     @staticmethod
-    def _sorted_shape_qhape(tensor=None, shape=None, qhape=None):
+    def _sorted_shape_qhape(
+        tensor: "AbelianTensor | None" = None,
+        shape: Sequence[Sequence[int]] | None = None,
+        qhape: Sequence[Sequence[Qnum]] | None = None,
+    ) -> tuple[list[Any], list[Any]]:
         """Sort `shape` and `qhape` according to ascending `qnum` along every
         index.  Used by `to_` and `from_ndarray`.
 
@@ -1231,7 +1243,7 @@ class AbelianTensor(TensorCommon):
             sorted_shp.append(dim)
         return sorted_shp, sorted_qhp
 
-    def defblock(self, key):
+    def defblock(self, key: Sequence[Qnum]) -> np.ndarray:
         """Return an NumPy array of the size of the block ``self[key]``, filled
         with `self.defval`.
 
@@ -1244,7 +1256,7 @@ class AbelianTensor(TensorCommon):
         block = np.full(block_shape, self.defval, dtype=self.dtype)
         return block
 
-    def is_full(self):
+    def is_full(self) -> bool:
         """Return True if the elements in `self.sects` cover all the elements
         in `self`.
         """
@@ -1257,7 +1269,7 @@ class AbelianTensor(TensorCommon):
         res = elements_in_sects >= elements_in_total
         return res
 
-    def check_consistency(self):
+    def check_consistency(self) -> bool:
         """Check internal consistency of a tensor.
 
         Check that self conforms to the defition given in the documentation
@@ -1338,14 +1350,18 @@ class AbelianTensor(TensorCommon):
         return True
 
     @classmethod
-    def check_qim_dim_match(cls, qim, dim):
+    def check_qim_dim_match(
+        cls, qim: Sequence[Any], dim: Sequence[Any]
+    ) -> bool:
         """Check that the given `qim` and `dim` match, i.e. are valid for the
         same index.
         """
         return len(qim) == len(dim)
 
     @classmethod
-    def check_qhape_shape_match(cls, qhape, shape):
+    def check_qhape_shape_match(
+        cls, qhape: Sequence[Sequence[Any]], shape: Sequence[Sequence[Any]]
+    ) -> bool:
         """Check that the given `qhape` and `shape` match, i.e. are valid for
         the same tensor.
         """
@@ -1356,17 +1372,17 @@ class AbelianTensor(TensorCommon):
     @classmethod
     def check_form_match(
         cls,
-        tensor1=None,
-        tensor2=None,
-        qhape1=None,
-        shape1=None,
-        dirs1=None,
-        qhape2=None,
-        shape2=None,
-        dirs2=None,
-        symmetry=None,
+        tensor1: "AbelianTensor | None" = None,
+        tensor2: "AbelianTensor | None" = None,
+        qhape1: Sequence[Sequence[Qnum]] | None = None,
+        shape1: Sequence[Sequence[int]] | None = None,
+        dirs1: Sequence[int] | None = None,
+        qhape2: Sequence[Sequence[Qnum]] | None = None,
+        shape2: Sequence[Sequence[int]] | None = None,
+        dirs2: Sequence[int] | None = None,
+        symmetry: AbelianGroup[Any] | None = None,
         qodulus: Any = _UNSET,
-    ):
+    ) -> bool:
         """Check that the form data of two tensors match.
 
         Check that the given two tensors have the same form in the sense that
