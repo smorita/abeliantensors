@@ -69,7 +69,6 @@ ignore = [
 "demo/**" = ["ANN"]
 "benchmarks/**" = ["ANN"]
 # Not annotated yet: removed in phase B-3 and B-4 of the typing spec.
-"src/abeliantensors/abeliantensor.py" = ["E741", "ANN"]
 "src/abeliantensors/tensor.py" = ["ANN"]
 
 [tool.pyright]

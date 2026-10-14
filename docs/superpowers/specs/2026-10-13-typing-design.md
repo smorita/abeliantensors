@@ -138,9 +138,12 @@ Indices = int | Sequence[int]      # dot / svd などに渡すインデックス
 
 例: `T.svd([0], [1])` は `tuple[Self, Self, Self]`、`T.svd([0], [1], return_rel_err=True)` は `tuple[Self, Self, Self, float]` と推論される。
 
-**演算子**
+**演算子(B-3 で決定)**
 
-- `_generate_binary_deferer` / `_generate_unary_deferer` で作る演算子(`AbelianTensor` で 42 個)は、`A + B` が `Self` 型と推論されるようにする。具体的な書き方(生成関数の戻り値の型、または演算子ごとの明示的な定義)は、pyright で実際に推論結果を確かめたうえで、B-3 の実装計画で決める。
+- `_generate_binary_deferer` / `_generate_unary_deferer` の戻り値を `Callable[[_AT, Any], _AT]` / `Callable[Concatenate[_AT, ...], _AT]`(`_AT` は `AbelianTensor` を上限とする `TypeVar`)と注釈する。生成された関数をクラス属性に代入すると、pyright はそれをメソッドとして扱い、`_AT` を呼び出し元のクラスに束縛するので、`TensorZ2 + TensorZ2` は `TensorZ2` と推論される。実行時の定義の仕方は変えない。
+- `__eq__` / `__ne__` は `object` の定義(戻り値 `bool`)と食い違うため、`if TYPE_CHECKING:` の中にテンソルを返す宣言を書き、`# pyright: ignore[reportIncompatibleMethodOverride]` を付ける(NumPy の型定義と同じやり方)。実行時は従来どおり生成した関数を使う。
+- `sqrt` は、`TensorCommon` が自身の型検査のために宣言した `sqrt`(戻り値 `Any`)が生成された関数より優先されてしまうため、同じく `if TYPE_CHECKING:` の中で `Self` を返すと宣言する(無視の指定は不要)。
+- `join_indices` の実装のシグネチャは、本体で引数の形を何度も作り変えるため `Any` にし、公開される型は `@overload` で与える。
 
 **`Tensor`(`np.ndarray` のサブクラス)**
 
@@ -175,3 +178,5 @@ Indices = int | Sequence[int]      # dot / svd などに渡すインデックス
 | `tensor.py` `def sum(self)` | `reportIncompatibleMethodOverride` | `AbelianTensor.sum()` に合わせて、軸の引数を取らずにスカラーを返す |
 | `tensor.py` `def trace(self, axis1=0, axis2=1)` | `reportIncompatibleMethodOverride` | `AbelianTensor.trace()` に合わせて、`Tensor` を返し、インデックスの互換性を確かめる |
 | `tensor.py` `def dot(self, B, indices)` | `reportIncompatibleMethodOverride` | `ndarray.dot` と違い `tensordot` 形式の引数をとる。また、引数名が `TensorCommon.dot` の `other` と違って `B` だが、後方互換のためそのままにしている |
+| `abeliantensor.py` `__eq__`(`if TYPE_CHECKING:` の中の宣言) | `reportIncompatibleMethodOverride` | 要素ごとの比較の結果としてテンソルを返す。`object.__eq__` の戻り値 `bool` と食い違う |
+| `abeliantensor.py` `__ne__`(同) | `reportIncompatibleMethodOverride` | 同上 |

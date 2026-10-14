@@ -6,13 +6,21 @@ import os
 import warnings
 from collections.abc import Callable, Iterable, Sequence
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Concatenate, Literal, Self, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Concatenate,
+    Literal,
+    Self,
+    TypeVar,
+    overload,
+)
 
 import numpy as np
 import scipy.sparse.linalg as spsla
 from numpy.typing import DTypeLike
 
-from ._typing import Dim, Qim, Qnum
+from ._typing import Dim, Indices, Qim, Qnum
 from .symmetry import AbelianGroup, CyclicGroup, U1Group
 from .tensorcommon import TensorCommon
 
@@ -1279,7 +1287,7 @@ class AbelianTensor(TensorCommon):
         called anywhere in the class.
         """
 
-        def check(condition, msg):
+        def check(condition: object, msg: str) -> None:
             # An explicit raise rather than assert, so that the check also
             # works under python -O.
             if not condition:
@@ -1447,17 +1455,17 @@ class AbelianTensor(TensorCommon):
     @classmethod
     def _find_trunc_dim(
         cls,
-        S,
-        S_sects,
-        minusabs_next_els,
-        dims,
-        chis,
-        eps=0,
-        break_degenerate=False,
-        degeneracy_eps=1e-6,
-        trunc_err_func=None,
-        norm_sq=None,
-    ):
+        S: np.ndarray,
+        S_sects: dict[Any, Any],
+        minusabs_next_els: list[Any],
+        dims: dict[Any, int],
+        chis: Sequence[int],
+        eps: float = 0,
+        break_degenerate: bool = False,
+        degeneracy_eps: float = 1e-6,
+        trunc_err_func: Callable[..., float] | None = None,
+        norm_sq: float | None = None,
+    ) -> tuple[int, dict[Any, int], float]:
         """A utility function that is used by eigenvalue and singular value
         decompositions.
 
@@ -1527,9 +1535,38 @@ class AbelianTensor(TensorCommon):
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # The meat: actual tensor operations
 
+    @overload
     def join_indices(
-        self, *inds, dirs=None, return_transposed_shape_data=False
-    ):
+        self,
+        *inds: Indices,
+        dirs: int | Sequence[int] | None = None,
+        return_transposed_shape_data: Literal[False] = False,
+    ) -> Self: ...
+
+    @overload
+    def join_indices(
+        self,
+        *inds: Indices,
+        dirs: int | Sequence[int] | None = None,
+        return_transposed_shape_data: Literal[True],
+    ) -> tuple[Self, list[Dim], list[Qim], list[int]]: ...
+
+    @overload
+    def join_indices(
+        self,
+        *inds: Indices,
+        dirs: int | Sequence[int] | None = None,
+        return_transposed_shape_data: bool,
+    ) -> Self | tuple[Self, list[Dim], list[Qim], list[int]]: ...
+
+    def join_indices(
+        self,
+        # The overloads above give the public types; the body reshapes inds
+        # and dirs through several forms, so the implementation takes Any.
+        *inds: Any,
+        dirs: Any = None,
+        return_transposed_shape_data: bool = False,
+    ) -> Any:
         """Join indices together in the spirit of reshape.
 
         `inds` is either an iterable of indices, in which case they are joined,
@@ -1700,7 +1737,7 @@ class AbelianTensor(TensorCommon):
 
         # Concatenator is a helper function that recursively concatenates the
         # pieces together. It is called once for every index in a batch.
-        def concatenator(l, i=0):
+        def concatenator(l: Any, i: int = 0) -> np.ndarray:
             if i == len(l[0]) - 2:
                 l = [el[-1] for el in l]
             else:
@@ -1717,7 +1754,7 @@ class AbelianTensor(TensorCommon):
         # Compute the new shape, qhape and dir.
         for new_d, batch in zip(dirs, index_batches):
 
-            def product_of_tuple(t):
+            def product_of_tuple(t: Iterable[int]) -> int:
                 return fct.reduce(opr.mul, t)
 
             cart_prod_of_dims = itt.product(
@@ -1764,7 +1801,13 @@ class AbelianTensor(TensorCommon):
         else:
             return res
 
-    def split_indices(self, indices, dims, qims=None, dirs=None):
+    def split_indices(
+        self,
+        indices: Indices,
+        dims: Sequence[Any],
+        qims: Sequence[Any] | None = None,
+        dirs: Any = None,
+    ) -> Self:
         """Split indices in the spirit of reshape.
 
         `indices` is an iterable of indices to be split. `dims` is an iterable
@@ -1859,12 +1902,12 @@ class AbelianTensor(TensorCommon):
         # dcum[0]:dcum[1].
         split_data = {}
         g = self.symmetry
-        for ind, dims, qims, dir_batch in zip(
+        for ind, dim_batch, qim_batch, dir_batch in zip(
             indices, dim_batches, qim_batches, dir_batches
         ):
             # Find combinations of qims that give the right qnum
-            dimcombs = itt.product(*dims)
-            qimcombs = itt.product(*qims)
+            dimcombs = itt.product(*dim_batch)
+            qimcombs = itt.product(*qim_batch)
             for qcomb, dcomb in zip(qimcombs, dimcombs):
                 qnum = g.signed(
                     g.sum(map(g.signed, qcomb, dir_batch)), self.dirs[ind]
@@ -1929,7 +1972,7 @@ class AbelianTensor(TensorCommon):
 
         return res
 
-    def swapaxes(self, i, j):
+    def swapaxes(self, i: int, j: int) -> Self:
         """Swap two indices, return a view."""
         res = self.empty_like()
         keys = set(self.sects.keys())
@@ -1950,7 +1993,7 @@ class AbelianTensor(TensorCommon):
         res.dirs[i], res.dirs[j] = res.dirs[j], res.dirs[i]
         return res
 
-    def transpose(self, p=(1, 0)):
+    def transpose(self, p: Sequence[int] = (1, 0)) -> Self:
         """Transpose indices, return a view.
 
         The optional argument `p` should be a permutation of all the indices.
@@ -1965,7 +2008,7 @@ class AbelianTensor(TensorCommon):
         res.dirs = list(map(self.dirs.__getitem__, p))
         return res
 
-    def trace(self, axis1=0, axis2=1):
+    def trace(self, axis1: int = 0, axis2: int = 1) -> Self:
         """Take a trace over `axis1` and `axis2`.
 
         This differs from the usual trace in the sense that it is more like
@@ -2025,7 +2068,9 @@ class AbelianTensor(TensorCommon):
                 pass
         return res
 
-    def multiply_diag(self, diag_vect, axis, direction="r"):
+    def multiply_diag(
+        self, diag_vect: "AbelianTensor", axis: int, direction: str = "r"
+    ) -> Self:
         """Multiply by a diagonal matrix on one axis.
 
         The result of `multiply_diag` is the same as
@@ -2082,7 +2127,7 @@ class AbelianTensor(TensorCommon):
         res.charge = g.add(self.charge, diag_vect.charge)
         return res
 
-    def dot(self, other, indices):
+    def dot(self, other: TensorCommon, indices: Sequence[Indices]) -> Self:
         """Contract `self` with `other` over the given pairs of `indices`.
 
         Raises ValueError if the two tensors have different symmetries. See
@@ -2091,7 +2136,7 @@ class AbelianTensor(TensorCommon):
         _check_same_symmetry(self, other)
         return super().dot(other, indices)
 
-    def matrix_dot(self, other):
+    def matrix_dot(self, other: "AbelianTensor") -> Self:
         """Take the dot product of two tensors of order < 3.
 
         If either one is a matrix, it must be invariant and have ``defval ==
@@ -2266,15 +2311,15 @@ class AbelianTensor(TensorCommon):
 
     def matrix_eig(
         self,
-        chis=None,
-        eps=0,
-        print_errors="deprecated",
-        hermitian=False,
-        break_degenerate=False,
-        degeneracy_eps=1e-6,
-        sparse=False,
-        trunc_err_func=None,
-    ):
+        chis: Any = None,
+        eps: float = 0,
+        print_errors: str = "deprecated",
+        hermitian: bool = False,
+        break_degenerate: bool = False,
+        degeneracy_eps: float = 1e-6,
+        sparse: bool = False,
+        trunc_err_func: Callable[..., float] | None = None,
+    ) -> tuple[Self, Self, float]:
         """Find eigenvalues and eigenvectors of a matrix.
 
         The input must have ``defval == 0``, ``invar == True``, ``charge ==
@@ -2439,14 +2484,14 @@ class AbelianTensor(TensorCommon):
 
     def matrix_svd(
         self,
-        chis=None,
-        eps=0,
-        print_errors="deprecated",
-        break_degenerate=False,
-        degeneracy_eps=1e-6,
-        sparse=False,
-        trunc_err_func=None,
-    ):
+        chis: Any = None,
+        eps: float = 0,
+        print_errors: str = "deprecated",
+        break_degenerate: bool = False,
+        degeneracy_eps: float = 1e-6,
+        sparse: bool = False,
+        trunc_err_func: Callable[..., float] | None = None,
+    ) -> tuple[Self, Self, Self, float]:
         """Singular value decompose a matrix.
 
         The matrix must have ``invar == True`` and ``defval == 0``.

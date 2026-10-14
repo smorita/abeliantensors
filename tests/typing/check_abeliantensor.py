@@ -83,3 +83,27 @@ assert_type(T.compatible_indices(T, 0, 1), bool)
 assert_type(T.check_consistency(), bool)
 assert_type(TensorZ2.check_form_match(tensor1=T, tensor2=T), bool)
 assert_type(repr(T), str)
+
+# Joining, splitting, contracting and decomposing
+assert_type(T.join_indices([0, 1], dirs=[1]), TensorZ2)
+assert_type(
+    T.join_indices([0, 1], dirs=[1], return_transposed_shape_data=True),
+    tuple[TensorZ2, list[Dim], list[Qim], list[int]],
+)
+assert_type(T.split_indices(0, [[1], [1]], qims=[[0], [0]]), TensorZ2)
+assert_type(T.swapaxes(0, 1), TensorZ2)
+assert_type(T.transpose(), TensorZ2)
+assert_type(T.transpose((1, 0)), TensorZ2)
+assert_type(T.trace(), TensorZ2)
+assert_type(T.multiply_diag(T.diag(), 1), TensorZ2)
+assert_type(T.dot(T, (1, 0)), TensorZ2)
+assert_type(T.matrix_dot(T), TensorZ2)
+assert_type(T.matrix_eig(), tuple[TensorZ2, TensorZ2, float])
+assert_type(T.matrix_svd(), tuple[TensorZ2, TensorZ2, TensorZ2, float])
+
+
+def join_with_flag(flag: bool) -> None:
+    assert_type(
+        T.join_indices([0, 1], dirs=[1], return_transposed_shape_data=flag),
+        TensorZ2 | tuple[TensorZ2, list[Dim], list[Qim], list[int]],
+    )
