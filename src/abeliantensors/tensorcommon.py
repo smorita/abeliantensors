@@ -1,6 +1,6 @@
 import warnings
 from collections.abc import Iterable, Sequence
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Any, Literal, Self, overload
 
 import numpy as np
 
@@ -37,6 +37,16 @@ class TensorCommon:
         def compatible_indices(self, *args: Any, **kwargs: Any) -> Any: ...
 
         def value(self, *args: Any, **kwargs: Any) -> Any: ...
+
+        def matrix_dot(self, *args: Any, **kwargs: Any) -> Any: ...
+
+        def matrix_eig(self, *args: Any, **kwargs: Any) -> Any: ...
+
+        def matrix_svd(self, *args: Any, **kwargs: Any) -> Any: ...
+
+        def multiply_diag(self, *args: Any, **kwargs: Any) -> Any: ...
+
+        def sqrt(self, *args: Any, **kwargs: Any) -> Any: ...
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # Initializing tensors
@@ -129,13 +139,32 @@ class TensorCommon:
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # The meat: actual tensor operations
 
+    @overload
     def to_matrix(
         self,
-        left_inds,
-        right_inds,
-        dirs=None,
-        return_transposed_shape_data=False,
-    ):
+        left_inds: Sequence[int],
+        right_inds: Sequence[int],
+        dirs: Sequence[int] | None = None,
+        return_transposed_shape_data: Literal[False] = False,
+    ) -> Self: ...
+
+    @overload
+    def to_matrix(
+        self,
+        left_inds: Sequence[int],
+        right_inds: Sequence[int],
+        dirs: Sequence[int] | None = None,
+        *,
+        return_transposed_shape_data: Literal[True],
+    ) -> tuple[Self, Any, Any, Any]: ...
+
+    def to_matrix(
+        self,
+        left_inds: Sequence[int],
+        right_inds: Sequence[int],
+        dirs: Sequence[int] | None = None,
+        return_transposed_shape_data: bool = False,
+    ) -> Self | tuple[Self, Any, Any, Any]:
         """Reshape the tensor into a matrix.
 
         The reshape is done by transposing `left_inds` to one side of `self`
@@ -330,7 +359,44 @@ class TensorCommon:
         )
         return self
 
-    def eig(self, a, b, *args, return_rel_err=False, **kwargs):
+    @overload
+    def eig(
+        self,
+        a: Indices,
+        b: Indices,
+        *args: Any,
+        return_rel_err: Literal[False] = False,
+        **kwargs: Any,
+    ) -> tuple[Self, Self]: ...
+
+    @overload
+    def eig(
+        self,
+        a: Indices,
+        b: Indices,
+        *args: Any,
+        return_rel_err: Literal[True],
+        **kwargs: Any,
+    ) -> tuple[Self, Self, float]: ...
+
+    @overload
+    def eig(
+        self,
+        a: Indices,
+        b: Indices,
+        *args: Any,
+        return_rel_err: bool,
+        **kwargs: Any,
+    ) -> tuple[Self, Self] | tuple[Self, Self, float]: ...
+
+    def eig(
+        self,
+        a: Indices,
+        b: Indices,
+        *args: Any,
+        return_rel_err: bool = False,
+        **kwargs: Any,
+    ) -> tuple[Self, Self] | tuple[Self, Self, float]:
         """Eigenvalue decompose the tensor.
 
         Transpose indices `a` to be on one side of `self`, `b` on the other,
@@ -396,12 +462,49 @@ class TensorCommon:
             left_dirs=U_dirs[0],
             right_dirs=U_dirs[1],
         )
-        ret_val = (S, U)
+        ret_val: tuple[Any, ...] = (S, U)
         if return_rel_err:
             ret_val += (rel_err,)
         return ret_val
 
-    def svd(self, a, b, *args, return_rel_err=False, **kwargs):
+    @overload
+    def svd(
+        self,
+        a: Indices,
+        b: Indices,
+        *args: Any,
+        return_rel_err: Literal[False] = False,
+        **kwargs: Any,
+    ) -> tuple[Self, Self, Self]: ...
+
+    @overload
+    def svd(
+        self,
+        a: Indices,
+        b: Indices,
+        *args: Any,
+        return_rel_err: Literal[True],
+        **kwargs: Any,
+    ) -> tuple[Self, Self, Self, float]: ...
+
+    @overload
+    def svd(
+        self,
+        a: Indices,
+        b: Indices,
+        *args: Any,
+        return_rel_err: bool,
+        **kwargs: Any,
+    ) -> tuple[Self, Self, Self] | tuple[Self, Self, Self, float]: ...
+
+    def svd(
+        self,
+        a: Indices,
+        b: Indices,
+        *args: Any,
+        return_rel_err: bool = False,
+        **kwargs: Any,
+    ) -> tuple[Self, Self, Self] | tuple[Self, Self, Self, float]:
         """Singular value decompose a tensor.
 
         Transpose indices `a` to be on one side of `self`, `b` on the other,
@@ -491,7 +594,7 @@ class TensorCommon:
             right_dirs=V_dirs[1],
         )
 
-        ret_val = (U, S, V)
+        ret_val: tuple[Any, ...] = (U, S, V)
         if return_rel_err:
             ret_val += (rel_err,)
         return ret_val
@@ -523,15 +626,85 @@ class TensorCommon:
                 chis = sorted(chis)
         return chis
 
+    @overload
     def split(
         self,
-        a,
-        b,
-        *args,
-        return_rel_err=False,
-        return_sings=False,
-        weight="both",
-        **kwargs,
+        a: Indices,
+        b: Indices,
+        *args: Any,
+        return_rel_err: Literal[False] = False,
+        return_sings: Literal[False] = False,
+        weight: str = "both",
+        **kwargs: Any,
+    ) -> tuple[Self, Self]: ...
+
+    @overload
+    def split(
+        self,
+        a: Indices,
+        b: Indices,
+        *args: Any,
+        return_rel_err: Literal[False] = False,
+        return_sings: Literal[True],
+        weight: str = "both",
+        **kwargs: Any,
+    ) -> tuple[Self, Self, Self]: ...
+
+    @overload
+    def split(
+        self,
+        a: Indices,
+        b: Indices,
+        *args: Any,
+        return_rel_err: Literal[True],
+        return_sings: Literal[False] = False,
+        weight: str = "both",
+        **kwargs: Any,
+    ) -> tuple[Self, Self, float]: ...
+
+    @overload
+    def split(
+        self,
+        a: Indices,
+        b: Indices,
+        *args: Any,
+        return_rel_err: Literal[True],
+        return_sings: Literal[True],
+        weight: str = "both",
+        **kwargs: Any,
+    ) -> tuple[Self, Self, Self, float]: ...
+
+    @overload
+    def split(
+        self,
+        a: Indices,
+        b: Indices,
+        *args: Any,
+        return_rel_err: bool = False,
+        return_sings: bool = False,
+        weight: str = "both",
+        **kwargs: Any,
+    ) -> (
+        tuple[Self, Self]
+        | tuple[Self, Self, Self]
+        | tuple[Self, Self, float]
+        | tuple[Self, Self, Self, float]
+    ): ...
+
+    def split(
+        self,
+        a: Indices,
+        b: Indices,
+        *args: Any,
+        return_rel_err: bool = False,
+        return_sings: bool = False,
+        weight: str = "both",
+        **kwargs: Any,
+    ) -> (
+        tuple[Self, Self]
+        | tuple[Self, Self, Self]
+        | tuple[Self, Self, float]
+        | tuple[Self, Self, Self, float]
     ):
         """Split the tensor into two with an SVD.
 
@@ -568,7 +741,7 @@ class TensorCommon:
             raise ValueError(f"Unknown value for weight: {weight}")
 
         if return_sings:
-            ret_val = U, S, V
+            ret_val: tuple[Any, ...] = U, S, V
         else:
             ret_val = U, V
         if return_rel_err:

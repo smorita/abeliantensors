@@ -108,6 +108,14 @@ Qim = list[Qnum]                   # 1 本のインデックスの量子数
 Indices = int | Sequence[int]      # dot / svd などに渡すインデックスの指定
 ```
 
+**群のジェネリクス化(B-1 で決定)**
+
+- `AbelianGroup` は、量子数の型をパラメータにしたジェネリクス `AbelianGroup[Q]`(PEP 695 の構文)にする。`CyclicGroup` と `U1Group` は `AbelianGroup[int]`、`ProductGroup` は `AbelianGroup[tuple[int, ...]]`。基底クラスで量子数の型を `Qnum` に固定すると、サブクラスの実装(整数どうしの足し算など)が型エラーになるため。
+
+**`TensorCommon` の型チェッカー向けの宣言(B-2 で決定)**
+
+- `TensorCommon` のメソッドに型を付けると、本体の中でサブクラスにしかないメソッド(`sqrt`、`multiply_diag` など)を呼んでいる箇所が検査されるようになる。それらは `if TYPE_CHECKING:` のブロックに `(*args: Any, **kwargs: Any) -> Any` の形で宣言する。具体的な型は、B-3、B-4 でサブクラスに付ける。
+
 **`TensorCommon` の属性**
 
 - `shape`、`qhape`、`dirs`、`charge` は、`TensorCommon` では `Any` として宣言し、具体的な型を各サブクラスで宣言する。

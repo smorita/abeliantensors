@@ -214,6 +214,11 @@ def test_tensorcommon_declarations_are_type_checking_only():
         "split_indices",
         "compatible_indices",
         "value",
+        "matrix_dot",
+        "matrix_eig",
+        "matrix_svd",
+        "multiply_diag",
+        "sqrt",
     ):
         assert name not in vars(TensorCommon)
     T = Tensor.random([2, 2]) + 1j * Tensor.random([2, 2])
