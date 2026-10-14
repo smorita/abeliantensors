@@ -7,7 +7,13 @@ from typing import Any, assert_type
 
 import numpy as np
 
-from abeliantensors import AbelianGroup, AbelianTensor, CyclicGroup, TensorZ2
+from abeliantensors import (
+    AbelianGroup,
+    AbelianTensor,
+    CyclicGroup,
+    TensorU1,
+    TensorZ2,
+)
 from abeliantensors._typing import Dim, Qim, Qnum
 
 T = TensorZ2.random([[1, 1], [1, 1]], dirs=[1, -1])
@@ -107,3 +113,15 @@ def join_with_flag(flag: bool) -> None:
         T.join_indices([0, 1], dirs=[1], return_transposed_shape_data=flag),
         TensorZ2 | tuple[TensorZ2, list[Dim], list[Qim], list[int]],
     )
+
+
+# 0-d results of numpy contractions are numpy scalars, which from_ndarray
+# accepts at runtime.
+assert_type(
+    TensorU1.from_ndarray(np.float64(1.3), shape=[], qhape=[], dirs=[]),
+    TensorU1,
+)
+assert_type(
+    TensorZ2.from_ndarray(np.float64(1.3), shape=[], qhape=[], dirs=[]),
+    TensorZ2,
+)

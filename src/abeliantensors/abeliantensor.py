@@ -1056,7 +1056,7 @@ class AbelianTensor(TensorCommon):
     @classmethod
     def from_ndarray(
         cls,
-        a: np.ndarray,
+        a: np.ndarray | np.generic,
         shape: Sequence[Sequence[int]] | None = None,
         qhape: Sequence[Sequence[Qnum]] | None = None,
         dirs: list[int] | None = None,
@@ -1103,7 +1103,8 @@ class AbelianTensor(TensorCommon):
             charge=charge,
             dirs=dirs,
         )
-        if not a.shape:
+        # (A numpy scalar, np.generic, always has shape ().)
+        if isinstance(a, np.generic) or not a.shape:
             # This tensor is just a scalar.
             res.defval = a
             return res

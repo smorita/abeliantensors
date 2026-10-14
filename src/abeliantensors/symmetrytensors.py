@@ -69,7 +69,7 @@ class FiniteAbelianTensor(AbelianTensor):
     @classmethod
     def from_ndarray(
         cls,
-        a: np.ndarray,
+        a: np.ndarray | np.generic,
         *args: Any,
         shape: Sequence[Sequence[int]] | None = None,
         qhape: Sequence[Sequence[Qnum]] | None = None,
